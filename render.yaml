@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: parking-control-api
+    runtime: python
+    pythonVersion: "3.12.10"
+    buildCommand: pip install -r requirements.txt && alembic upgrade head
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
