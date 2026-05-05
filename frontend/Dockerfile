@@ -1,28 +1,32 @@
-# ── Stage 1: build ─────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM python:3.12-slim
+
+# Variables de entorno
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Crear usuario seguro
+RUN adduser --disabled-password --gecos '' appuser
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --prefer-offline
+# Instalar dependencias del sistema (solo si las necesitas)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
+# Copiar requirements primero (mejora cache)
+COPY requirements.txt .
+
+# Instalar dependencias Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar el resto del proyecto
 COPY . .
 
-# When VITE_API_URL is empty, axios uses relative paths that nginx proxies
-ARG VITE_API_URL=""
-ENV VITE_API_URL=$VITE_API_URL
+# Cambiar a usuario no root
+USER appuser
 
-RUN npm run build
+EXPOSE 8000
 
-# ── Stage 2: serve ──────────────────────────────────────────────────────────
-FROM nginx:1.27-alpine
-
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Remove default nginx config
-RUN rm -f /etc/nginx/conf.d/default.conf.bak
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+# Comando optimizado (Render/free usa 1 worker)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
