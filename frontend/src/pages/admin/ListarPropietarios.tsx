@@ -293,8 +293,8 @@ export default function ListarPropietarios() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Propietarios</h1>
-          <p className="text-gray-400 mt-1 text-sm">
+          <h1 className="text-2xl font-bold text-blue-900 tracking-tight">Propietarios</h1>
+          <p className="text-gray-700 mt-1 text-sm">
             {loading ? 'Cargando…' : `${propietarios.length} propietario${propietarios.length !== 1 ? 's' : ''} registrado${propietarios.length !== 1 ? 's' : ''}`}
           </p>
         </div>
@@ -332,7 +332,7 @@ export default function ListarPropietarios() {
           {propietarios.map((p) => (
             <div
               key={p.uid}
-              className="glass flex items-center gap-4 px-4 py-3 hover:bg-white/[0.08] transition-colors duration-150"
+              className="glass flex items-center gap-4 px-4 py-3 hover:bg-white/[0.09] transition-colors duration-150"
             >
               {/* Photo */}
               <img
@@ -346,7 +346,7 @@ export default function ListarPropietarios() {
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <p className="text-white font-semibold text-sm truncate">{p.nombre}</p>
+                <p className="text-blue-800 font-semibold text-sm truncate">{p.nombre}</p>
                 <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                   <span className="flex items-center gap-1 text-gray-400 text-xs">
                     <Building2 className="w-3 h-3" />

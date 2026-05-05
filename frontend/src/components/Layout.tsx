@@ -95,6 +95,28 @@ export default function Layout({ children }: { children: ReactNode }) {
             </button>
           </div>
         </div>
+
+        {user?.role === 'admin' && (
+          <div className="sm:hidden border-t border-slate-200 px-4 py-2">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              {ADMIN_LINKS.map((link) => (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  className={({ isActive }) =>
+                    `whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-lg transition-colors duration-150 ${
+                      isActive
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                    }`
+                  }
+                >
+                  {link.label}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* ── Page content ────────────────────────────────────────────────── */}
