@@ -6,6 +6,7 @@ import {
   Clock,
   CreditCard,
   Home,
+  Phone,
   QrCode,
   RotateCcw,
   Search,
@@ -14,8 +15,8 @@ import {
 } from 'lucide-react'
 import QrScanner from 'qr-scanner'
 import { useEffect, useRef, useState } from 'react'
-import { verificarAcceso } from '../../api/acceso'
-import type { ApiErrorBody, VerificacionResponse } from '../../types'
+import { listarHistorialReciente, verificarAcceso } from '../../api/acceso'
+import type { ApiErrorBody, HistorialAccesoOut, VerificacionResponse } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDateTime(iso: string): string {
@@ -66,12 +67,15 @@ export default function VerificarAcceso() {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [result, setResult] = useState<VerificacionResponse | null>(null)
   const [denied, setDenied] = useState<string | null>(null)
+  const [historial, setHistorial] = useState<HistorialAccesoOut[]>([])
+  const [historialError, setHistorialError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<QrScanner | null>(null)
 
   useEffect(() => {
     inputRef.current?.focus()
+    void loadHistorial()
   }, [])
 
   useEffect(() => {
@@ -81,6 +85,17 @@ export default function VerificarAcceso() {
       scannerRef.current = null
     }
   }, [])
+
+  const loadHistorial = async () => {
+    setHistorialError(null)
+    try {
+      const data = await listarHistorialReciente()
+      setHistorial(data)
+    } catch (err) {
+      const axiosErr = err as AxiosError<ApiErrorBody>
+      setHistorialError(axiosErr.response?.data?.detail ?? 'No se pudo cargar el historial')
+    }
+  }
 
   const verifyUid = async (rawUid: string) => {
     const trimmed = rawUid.trim()
@@ -92,6 +107,7 @@ export default function VerificarAcceso() {
     try {
       const data = await verificarAcceso(trimmed)
       setResult(data)
+      await loadHistorial()
     } catch (err) {
       const axiosErr = err as AxiosError<ApiErrorBody>
       if (axiosErr.response?.status === 404) {
@@ -176,7 +192,7 @@ export default function VerificarAcceso() {
   }
 
   return (
-    <div className="max-w-lg mx-auto animate-fade-in">
+    <div className="max-w-5xl mx-auto animate-fade-in">
       {/* Header */}
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Verificar Acceso</h1>
@@ -185,6 +201,8 @@ export default function VerificarAcceso() {
         </p>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+        <div>
       {/* QR Scanner */}
       <div className="glass p-4 mb-5">
         <div className="flex items-center justify-between gap-3">
@@ -316,6 +334,11 @@ export default function VerificarAcceso() {
                   label="Apartamento"
                   value={result.apartamento}
                 />
+                <InfoCard
+                  icon={<Phone className="w-4 h-4 text-blue-400" />}
+                  label="Contacto"
+                  value={result.numero_contacto ?? 'Sin registrar'}
+                />
               </div>
             </div>
           </div>
@@ -346,6 +369,64 @@ export default function VerificarAcceso() {
           </button>
         </div>
       )}
+        </div>
+
+        {/* Recent history */}
+        <aside className="glass p-4">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Últimos escaneos</h2>
+              <p className="text-xs text-slate-500">Tus 10 verificaciones más recientes</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void loadHistorial()
+              }}
+              className="btn-ghost px-3 py-2 text-xs"
+            >
+              Actualizar
+            </button>
+          </div>
+
+          {historialError && <p className="field-error mb-3">{historialError}</p>}
+
+          {!historialError && historial.length === 0 && (
+            <p className="text-sm text-slate-500 py-6 text-center">
+              Aún no hay propietarios escaneados.
+            </p>
+          )}
+
+          {historial.length > 0 && (
+            <div className="space-y-2">
+              {historial.map((item, index) => (
+                <div
+                  key={`${item.uid}-${item.verificado_en}-${index}`}
+                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white/60 p-3"
+                >
+                  <img
+                    src={item.foto_url}
+                    alt={item.nombre}
+                    className="w-11 h-11 rounded-lg object-cover border border-slate-200 flex-shrink-0"
+                    onError={(e) => {
+                      ;(e.target as HTMLImageElement).src = avatarSvg(item.nombre)
+                    }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-900 truncate">{item.nombre}</p>
+                    <p className="text-xs text-slate-500 truncate">
+                      Torre {item.torre} · Apto {item.apartamento}
+                    </p>
+                    <p className="text-[11px] text-slate-400 truncate">
+                      {formatDateTime(item.verificado_en)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
   )
 }

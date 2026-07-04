@@ -25,6 +25,7 @@ class Propietario(Base):
         String(16), unique=True, nullable=False, index=True
     )
     nombre: Mapped[str] = mapped_column(String(120), nullable=False)
+    numero_contacto: Mapped[str | None] = mapped_column(String(30), nullable=True)
     torre: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
     apartamento: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
     foto_url: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -47,6 +48,9 @@ class HistorialAcceso(Base):
         ForeignKey("propietarios.id"), nullable=False, index=True
     )
     propietario_uid: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    vigilante_username: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, index=True
+    )
     fecha_hora: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

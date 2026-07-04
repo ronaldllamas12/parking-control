@@ -5,6 +5,7 @@ import {
   Edit2,
   Home,
   Plus,
+  Phone,
   RefreshCw,
   Save,
   Trash2,
@@ -34,6 +35,7 @@ interface EditModalProps {
 
 function EditModal({ item, onClose, onSaved }: EditModalProps) {
   const [nombre, setNombre] = useState(item.nombre)
+  const [numeroContacto, setNumeroContacto] = useState(item.numero_contacto ?? '')
   const [torre, setTorre] = useState(item.torre)
   const [apartamento, setApartamento] = useState(item.apartamento)
   const [foto, setFoto] = useState<File | null>(null)
@@ -56,7 +58,7 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
     try {
       const updated = await actualizarPropietario(
         item.uid,
-        { nombre, torre, apartamento },
+        { nombre, numero_contacto: numeroContacto, torre, apartamento },
         foto ?? undefined,
       )
       onSaved(updated)
@@ -118,6 +120,20 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
               required
               minLength={3}
               maxLength={120}
+              className="field"
+            />
+          </div>
+
+          {/* Torre */}
+          <div>
+            <label className="text-gray-400 text-xs mb-1 block">Número de contacto</label>
+            <input
+              value={numeroContacto}
+              onChange={(e) => setNumeroContacto(e.target.value)}
+              required
+              minLength={7}
+              maxLength={30}
+              pattern="^\+?[0-9\s()-]+$"
               className="field"
             />
           </div>
@@ -356,6 +372,12 @@ export default function ListarPropietarios() {
                     <Home className="w-3 h-3" />
                     Apto {p.apartamento}
                   </span>
+                  {p.numero_contacto && (
+                    <span className="flex items-center gap-1 text-gray-400 text-xs">
+                      <Phone className="w-3 h-3" />
+                      {p.numero_contacto}
+                    </span>
+                  )}
                   <span className="text-gray-600 text-xs font-mono tracking-widest hidden sm:block">
                     {p.uid}
                   </span>

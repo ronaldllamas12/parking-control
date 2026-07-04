@@ -19,6 +19,12 @@ ApartamentoStr = Annotated[
         strip_whitespace=True, to_upper=True, pattern=r"^[0-9]{2,4}[A-Z]?$"
     ),
 ]
+NumeroContactoStr = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True, min_length=7, max_length=30, pattern=r"^\+?[0-9\s()-]+$"
+    ),
+]
 
 
 class Token(BaseModel):
@@ -35,6 +41,7 @@ class PropietarioCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     nombre: NombreStr
+    numero_contacto: NumeroContactoStr
     torre: TorreStr
     apartamento: ApartamentoStr
 
@@ -43,6 +50,7 @@ class PropietarioUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     nombre: NombreStr | None = None
+    numero_contacto: NumeroContactoStr | None = None
     torre: TorreStr | None = None
     apartamento: ApartamentoStr | None = None
 
@@ -50,6 +58,7 @@ class PropietarioUpdate(BaseModel):
 class PropietarioOut(BaseModel):
     uid: str
     nombre: str
+    numero_contacto: str | None = None
     torre: str
     apartamento: str
     foto_url: str | None = None
@@ -60,6 +69,17 @@ class PropietarioOut(BaseModel):
 class VerificacionResponse(BaseModel):
     uid: str
     nombre: str
+    numero_contacto: str | None = None
+    torre: str
+    apartamento: str
+    foto_url: str
+    verificado_en: datetime
+
+
+class HistorialAccesoOut(BaseModel):
+    uid: str
+    nombre: str
+    numero_contacto: str | None = None
     torre: str
     apartamento: str
     foto_url: str

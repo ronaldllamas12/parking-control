@@ -1,4 +1,4 @@
-import type { VerificacionResponse } from '../types'
+import type { HistorialAccesoOut, VerificacionResponse } from '../types'
 import apiClient from './axios'
 
 /**
@@ -8,6 +8,14 @@ import apiClient from './axios'
 export async function verificarAcceso(uid: string): Promise<VerificacionResponse> {
   const { data } = await apiClient.get<VerificacionResponse>(
     `/api/v1/acceso/verificar/${uid.toUpperCase()}`,
+  )
+  return data
+}
+
+/** GET /api/v1/acceso/historial-reciente */
+export async function listarHistorialReciente(): Promise<HistorialAccesoOut[]> {
+  const { data } = await apiClient.get<HistorialAccesoOut[]>(
+    '/api/v1/acceso/historial-reciente',
   )
   return data
 }

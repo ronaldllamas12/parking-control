@@ -21,6 +21,12 @@ import type { ApiErrorBody, PropietarioOut } from '../../types'
 // Mirrors backend Pydantic constraints
 const schema = z.object({
   nombre: z.string().min(3, 'Mínimo 3 caracteres').max(120, 'Máximo 120 caracteres').trim(),
+  numero_contacto: z
+    .string()
+    .trim()
+    .min(7, 'Mínimo 7 caracteres')
+    .max(30, 'Máximo 30 caracteres')
+    .regex(/^\+?[0-9\s()-]+$/, 'Solo números, espacios, paréntesis, guiones y + inicial'),
   torre: z
     .string()
     .trim()
@@ -156,6 +162,7 @@ export default function RegistrarPropietario() {
     try {
       const result = await registrarPropietario(
         values.nombre,
+        values.numero_contacto,
         values.torre,
         values.apartamento,
         photo,
@@ -210,6 +217,7 @@ export default function RegistrarPropietario() {
           <div className="bg-gray/500 rounded-xl px-4 py-2 mb-6 space-y-0.5">
             <InfoRow label="UID de acceso" value={success.uid} mono />
             <InfoRow label="Nombre" value={success.nombre} />
+            <InfoRow label="Número de contacto" value={success.numero_contacto ?? 'Sin registrar'} />
             <InfoRow label="Torre" value={success.torre} />
             <InfoRow label="Apartamento" value={success.apartamento} />
           </div>
@@ -292,6 +300,17 @@ export default function RegistrarPropietario() {
               placeholder="Ej: Carlos Martínez López"
               className="field"
               autoComplete="name"
+            />
+          </FormField>
+
+          {/* Numero de contacto */}
+          <FormField label="Número de contacto" required error={errors.numero_contacto?.message}>
+            <input
+              {...register('numero_contacto')}
+              placeholder="Ej: 300 123 4567"
+              className="field"
+              autoComplete="tel"
+              maxLength={30}
             />
           </FormField>
 

@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 @router.post("/", response_model=schemas.PropietarioOut)
 def registrar_propietario(
     nombre: str = Form(...),
+    numero_contacto: str = Form(...),
     torre: str = Form(...),
     apartamento: str = Form(...),
     foto: UploadFile = File(...),
@@ -33,7 +34,10 @@ def registrar_propietario(
 
     try:
         payload = schemas.PropietarioCreate(
-            nombre=nombre, torre=torre, apartamento=apartamento
+            nombre=nombre,
+            numero_contacto=numero_contacto,
+            torre=torre,
+            apartamento=apartamento,
         )
     except ValidationError as exc:
         logger.warning(
@@ -108,6 +112,7 @@ def listar_propietarios(
 def actualizar_propietario(
     uid: str,
     nombre: Optional[str] = Form(None),
+    numero_contacto: Optional[str] = Form(None),
     torre: Optional[str] = Form(None),
     apartamento: Optional[str] = Form(None),
     foto: Optional[UploadFile] = File(None),
@@ -120,7 +125,10 @@ def actualizar_propietario(
 
     try:
         payload = schemas.PropietarioUpdate(
-            nombre=nombre, torre=torre, apartamento=apartamento
+            nombre=nombre,
+            numero_contacto=numero_contacto,
+            torre=torre,
+            apartamento=apartamento,
         )
     except ValidationError as exc:
         raise AppException(status_code=422, detail="Datos inválidos") from exc

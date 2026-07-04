@@ -7,12 +7,14 @@ import apiClient from './axios'
  */
 export async function registrarPropietario(
   nombre: string,
+  numeroContacto: string,
   torre: string,
   apartamento: string,
   foto: File,
 ): Promise<PropietarioOut> {
   const form = new FormData()
   form.append('nombre', nombre)
+  form.append('numero_contacto', numeroContacto.trim())
   form.append('torre', torre.trim())
   form.append('apartamento', apartamento.toUpperCase())
   form.append('foto', foto)
@@ -35,6 +37,8 @@ export async function actualizarPropietario(
 ): Promise<PropietarioOut> {
   const form = new FormData()
   if (fields.nombre !== undefined) form.append('nombre', fields.nombre)
+  if (fields.numero_contacto !== undefined)
+    form.append('numero_contacto', fields.numero_contacto.trim())
   if (fields.torre !== undefined) form.append('torre', fields.torre.trim())
   if (fields.apartamento !== undefined)
     form.append('apartamento', fields.apartamento.toUpperCase())
