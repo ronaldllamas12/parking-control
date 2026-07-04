@@ -11,7 +11,6 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import QRCode from 'qrcode'
 import { useEffect, useRef, useState } from 'react'
 import {
   actualizarPropietario,
@@ -19,6 +18,7 @@ import {
   listarPropietarios,
 } from '../../api/propietarios'
 import type { ApiErrorBody, PropietarioOut } from '../../types'
+import { createOwnerQrDataUrl, qrFileName } from '../../utils/qrDownload'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function avatarSvg(letter: string): string {
@@ -285,15 +285,11 @@ export default function ListarPropietarios() {
   const handleDownloadQr = async (item: PropietarioOut) => {
     setDownloadingQrUid(item.uid)
     try {
-      const qrDataUrl = await QRCode.toDataURL(item.uid, {
-        width: 320,
-        margin: 2,
-        errorCorrectionLevel: 'M',
-      })
+      const qrDataUrl = await createOwnerQrDataUrl(item.uid, item.nombre)
 
       const anchor = document.createElement('a')
       anchor.href = qrDataUrl
-      anchor.download = `qr-uid-${item.uid}.png`
+      anchor.download = qrFileName(item.nombre, item.uid)
       document.body.appendChild(anchor)
       anchor.click()
       anchor.remove()

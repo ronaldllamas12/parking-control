@@ -11,12 +11,12 @@ import {
   UserPlus,
   X,
 } from 'lucide-react'
-import QRCode from 'qrcode'
 import { useCallback, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { registrarPropietario } from '../../api/propietarios'
 import type { ApiErrorBody, PropietarioOut } from '../../types'
+import { createOwnerQrDataUrl, qrFileName } from '../../utils/qrDownload'
 
 // Mirrors backend Pydantic constraints
 const schema = z.object({
@@ -169,11 +169,7 @@ export default function RegistrarPropietario() {
       )
 
       try {
-        const qrPngData = await QRCode.toDataURL(result.uid, {
-          width: 320,
-          margin: 2,
-          errorCorrectionLevel: 'M',
-        })
+        const qrPngData = await createOwnerQrDataUrl(result.uid, result.nombre)
         setQrCodeDataUrl(qrPngData)
         setQrError(null)
       } catch {
@@ -251,7 +247,7 @@ export default function RegistrarPropietario() {
                 </div>
                 <a
                   href={qrCodeDataUrl}
-                  download={`qr-uid-${success.uid}.png`}
+                  download={qrFileName(success.nombre, success.uid)}
                   className="btn-ghost w-full"
                 >
                   <Download className="w-4 h-4" />
