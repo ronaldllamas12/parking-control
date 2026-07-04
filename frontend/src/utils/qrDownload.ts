@@ -54,7 +54,8 @@ export async function createOwnerQrDataUrl(uid: string, nombre: string): Promise
   ctx.fillStyle = '#0f172a'
   ctx.font = '700 24px Arial, sans-serif'
   ctx.textAlign = 'center'
-  ctx.fillText('QR de acceso', canvas.width / 2, 46)
+  ctx.fillText('PARQUEADERO IGUAZU', canvas.width / 2, 46)
+  ctx.fillText('QR de acceso ', canvas.width / 2, 46)
 
   ctx.fillStyle = '#2563eb'
   ctx.font = '700 22px Arial, sans-serif'
@@ -62,13 +63,13 @@ export async function createOwnerQrDataUrl(uid: string, nombre: string): Promise
 
   ctx.fillStyle = '#475569'
   ctx.font = '600 14px Arial, sans-serif'
-  ctx.fillText(`UID: ${uid}`, canvas.width / 2, 110)
+  ctx.fillText(`ID : ${uid}`, canvas.width / 2, 110)
 
   ctx.drawImage(qrImage, 50, 132, 320, 320)
 
   ctx.fillStyle = '#64748b'
   ctx.font = '500 13px Arial, sans-serif'
-  ctx.fillText('La información codificada es únicamente el UID.', canvas.width / 2, 478)
+  ctx.fillText('Intransferible Evita el Uso Indebido.', canvas.width / 2, 478)
 
   return canvas.toDataURL('image/png')
 }
