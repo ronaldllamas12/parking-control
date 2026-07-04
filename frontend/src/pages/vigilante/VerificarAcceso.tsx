@@ -35,6 +35,13 @@ function avatarSvg(letter: string): string {
   return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" rx="16" fill="%232563eb"/><text x="48" y="62" font-size="42" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold">${encoded}</text></svg>`
 }
 
+function phoneHref(phone?: string | null): string | null {
+  if (!phone) return null
+
+  const cleaned = phone.replace(/[^\d+]/g, '')
+  return cleaned ? `tel:${cleaned}` : null
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 function InfoCard({
   icon,
@@ -417,6 +424,18 @@ export default function VerificarAcceso() {
                     <p className="text-xs text-slate-500 truncate">
                       Torre {item.torre} · Apto {item.apartamento}
                     </p>
+                    {phoneHref(item.numero_contacto) ? (
+                      <a
+                        href={phoneHref(item.numero_contacto) ?? undefined}
+                        className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
+                        aria-label={`Llamar a ${item.nombre} al ${item.numero_contacto}`}
+                      >
+                        <Phone className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span className="truncate">{item.numero_contacto}</span>
+                      </a>
+                    ) : (
+                      <p className="mt-1 text-xs text-slate-400 truncate">Sin contacto</p>
+                    )}
                     <p className="text-[11px] text-slate-400 truncate">
                       {formatDateTime(item.verificado_en)}
                     </p>
