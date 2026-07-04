@@ -37,10 +37,10 @@ def ensure_default_users(
     vigilante_username: str,
     vigilante_password: str,
 ) -> None:
-    if not get_user_by_username(db, admin_username):
-        create_user(db, admin_username, admin_password, role="admin")
-    if not get_user_by_username(db, vigilante_username):
-        create_user(db, vigilante_username, vigilante_password, role="vigilante")
+    if not get_user_by_username(db, ADMIN_USERNAME):
+        create_user(db, ADMIN_USERNAME, ADMIN_PASSWORD, role="admin")
+    if not get_user_by_username(db, VIGILANTE_USERNAME):
+        create_user(db, VIGILANTE_USERNAME, VIGILANTE_PASSWORD, role="vigilante")
 
 
 def get_propietario_by_uid(db: Session, uid: str) -> Optional[models.Propietario]:
