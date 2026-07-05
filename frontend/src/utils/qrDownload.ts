@@ -55,15 +55,15 @@ export async function createOwnerQrDataUrl(uid: string, nombre: string): Promise
   ctx.font = '700 24px Arial, sans-serif'
   ctx.textAlign = 'center'
   ctx.fillText('PARQUEADERO IGUAZU', canvas.width / 2, 46)
-  ctx.fillText('QR de acceso ', canvas.width / 2, 46)
+  ctx.fillText('QR de acceso ', canvas.width / 2, 70)
 
   ctx.fillStyle = '#2563eb'
   ctx.font = '700 22px Arial, sans-serif'
-  ctx.fillText(fitText(ctx, nombre, 360), canvas.width / 2, 82)
+  ctx.fillText(fitText(ctx, nombre, 360), canvas.width / 2, 100)
 
   ctx.fillStyle = '#475569'
   ctx.font = '600 14px Arial, sans-serif'
-  ctx.fillText(`ID : ${uid}`, canvas.width / 2, 110)
+  ctx.fillText(`ID : ${uid}`, canvas.width / 2, 125)
 
   ctx.drawImage(qrImage, 50, 132, 320, 320)
 
