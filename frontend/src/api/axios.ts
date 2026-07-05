@@ -7,7 +7,7 @@ import axios, { AxiosError, AxiosResponse } from 'axios'
  */
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '',
-  timeout: 20_000,
+  timeout: 40_000,
 })
 
 function isAuthTokenRequest(error: AxiosError): boolean {
