@@ -118,7 +118,7 @@ export default function VerificarAcceso() {
     } catch (err) {
       const axiosErr = err as AxiosError<ApiErrorBody>
       if (axiosErr.response?.status === 404) {
-        setDenied('UID no encontrado en el sistema')
+        setDenied('ID no encontrado en el sistema')
       } else {
         setDenied(axiosErr.response?.data?.detail ?? 'Error de conexión')
       }
@@ -203,8 +203,8 @@ export default function VerificarAcceso() {
       {/* Header */}
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Verificar Acceso</h1>
-        <p className="text-slate-500 mt-1.5 text-sm">
-          Escanea el QR con la cámara o ingresa manualmente el UID
+        <p className="text-slate-700 mt-1.5 text-sm">
+          Escanea el QR con la cámara o ingresa manualmente el ID
         </p>
       </div>
 
@@ -267,12 +267,12 @@ export default function VerificarAcceso() {
               ref={inputRef}
               value={uid}
               onChange={(e) => setUid(e.target.value.toUpperCase())}
-              placeholder="UID DEL PROPIETARIO"
+              placeholder="ID DEL PROPIETARIO"
               maxLength={16}
               disabled={loading}
               className="field pl-12 font-mono tracking-[0.2em] text-base uppercase
                          disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="UID del propietario"
+              aria-label="ID del propietario"
             />
           </div>
           <button
@@ -367,12 +367,12 @@ export default function VerificarAcceso() {
             </div>
             <p className="text-rose-300 font-bold text-xl mb-2">Acceso Denegado</p>
             <p className="text-slate-600 text-sm">{denied}</p>
-            <p className="text-slate-500 text-xs mt-1">UID consultado: {uid}</p>
+            <p className="text-slate-500 text-xs mt-1">ID consultado: {uid}</p>
           </div>
 
           <button onClick={handleReset} className="btn-ghost w-full">
             <RotateCcw className="w-4 h-4" />
-            Intentar con otro UID
+            Intentar con otro ID
           </button>
         </div>
       )}
@@ -382,7 +382,7 @@ export default function VerificarAcceso() {
         <aside className="glass p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900">Últimos escaneos</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Últimos usuarios escaneos</h2>
               <p className="text-xs text-slate-500">Tus 10 verificaciones más recientes</p>
             </div>
             <button

@@ -283,7 +283,7 @@ export default function RegistrarPropietario() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-blue-900 tracking-tight">Registrar Propietario</h1>
         <p className="text-gray-700 mt-1.5 text-sm">
-          Completa los datos para dar de alta a un nuevo propietario y su acceso al parqueadero.
+          Completa todos los datos para registrar un nuevo propietario y su acceso al parqueadero.
         </p>
       </div>
 
@@ -306,7 +306,7 @@ export default function RegistrarPropietario() {
               placeholder="Ej: 300 123 4567"
               className="field"
               autoComplete="tel"
-              maxLength={30}
+              maxLength={10}
             />
           </FormField>
 
@@ -314,7 +314,7 @@ export default function RegistrarPropietario() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField
               label="Torre"
-              hint="1 · 2 · 12"
+              hint="1 · 2 · 10"
               required
               error={errors.torre?.message}
             >
@@ -322,13 +322,13 @@ export default function RegistrarPropietario() {
                 {...register('torre')}
                 placeholder="Ej: 2"
                 className="field"
-                maxLength={3}
+                maxLength={2}
               />
             </FormField>
 
             <FormField
               label="Apartamento"
-              hint="101 · 2204 · 302A"
+              hint="101 · 2204 · 302"
               required
               error={errors.apartamento?.message}
             >
@@ -391,7 +391,7 @@ export default function RegistrarPropietario() {
                   </div>
                   <p className="text-sm text-gray-400">
                     Arrastra una foto o{' '}
-                    <span className="text-blue-400 font-medium underline underline-offset-2">
+                    <span className="text-blue-600 font-medium underline underline-offset-2">
                       haz clic aquí
                     </span>
                   </p>

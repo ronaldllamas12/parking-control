@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import type { ApiErrorBody } from '../types'
 
 const schema = z.object({
-  username: z.string().min(1, 'El usuario es requerido'),
+  username: z.string().min(1, 'El usuario es obligatorio'),
   password: z.string().min(1, 'La contraseña es requerida'),
 })
 type FormValues = z.infer<typeof schema>
@@ -74,13 +74,13 @@ export default function Login() {
         <div className="text-center mb-8">
           <div
             className="inline-flex items-center justify-center w-16 h-16
-                        bg-blue-600 rounded-2xl mb-5
-                        shadow-xl shadow-blue-600/40 ring-1 ring-blue-500/60"
+                        bg-dark rounded-2xl mb-5
+                        shadow-xl shadow-blue-600 ring ring-blue-500"
           >
             <Shield className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Control de Acceso</h1>
-          <p className="text-gray-500 text-sm mt-1.5">Sistema de Parqueadero Residencial</p>
+          <p className="text-white text-sm mt-1.5">Sistema de Parqueadero Residencial</p>
         </div>
 
         {/* Card */}
@@ -148,7 +148,7 @@ export default function Login() {
               {isSubmitting ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Verificando...
+                  Espera un momento estamos Verificando la Informacion...
                 </>
               ) : (
                 'Iniciar sesión'
@@ -157,7 +157,7 @@ export default function Login() {
           </form>
         </div>
 
-        <p className="text-center text-gray-700 text-xs mt-6">
+        <p className="text-center text-white text-xs mt-6">
           © {new Date().getFullYear()} Parqueadero Residencial · Todos los derechos reservados
         </p>
       </div>

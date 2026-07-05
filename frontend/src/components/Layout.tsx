@@ -38,10 +38,10 @@ export default function Layout({ children }: { children: ReactNode }) {
           {/* Logo + admin nav links */}
           <div className="flex items-center gap-5 flex-shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-600/30">
-                <Shield className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-lg shadow-blue-600/30">
+                <Shield className="w-4 h-4 text-blue" />
               </div>
-              <span className="font-semibold text-slate-900 text-sm hidden sm:block tracking-tight">
+              <span className="font-bold text-slate-900 text-sm hidden sm:block tracking-tight">
                 Control de Acceso
               </span>
             </div>
@@ -86,8 +86,8 @@ export default function Layout({ children }: { children: ReactNode }) {
 
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 text-slate-500 hover:text-rose-500 text-sm
-                         px-3 py-1.5 rounded-lg hover:bg-rose-500/10 transition-colors duration-200"
+              className="flex items-center gap-1.5 text-rose-500 hover:text-white text-sm
+                         px-3 py-1.5 rounded-lg hover:bg-rose-500 transition-colors duration-200"
               aria-label="Cerrar sesión"
             >
               <LogOut className="w-4 h-4" />
