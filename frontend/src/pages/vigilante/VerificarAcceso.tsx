@@ -170,8 +170,12 @@ export default function VerificarAcceso() {
       scannerRef.current = scanner
       await scanner.start()
       setCameraActive(true)
-    } catch {
-      setCameraError('No se pudo iniciar la cámara. Revisa permisos del navegador.')
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      console.error('Error al iniciar QrScanner:', err)
+      setCameraError(
+        `No se pudo iniciar la cámara. ${errorMessage}. Revisa permisos y prueba nuevamente.`,
+      )
       stopScanner()
     } finally {
       setCameraLoading(false)
@@ -183,7 +187,15 @@ export default function VerificarAcceso() {
       stopScanner()
       return
     }
-    await startScanner()
+
+    try {
+      await startScanner()
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      console.error('toggleScanner error:', err)
+      setCameraError(`Error al activar la cámara: ${errorMessage}`)
+      setCameraLoading(false)
+    }
   }
 
   const handleVerify = async (e?: React.FormEvent) => {
@@ -253,6 +265,7 @@ export default function VerificarAcceso() {
               className={`w-full h-full object-cover ${cameraActive ? 'block' : 'hidden'}`}
               muted
               playsInline
+              autoPlay
             />
             {!cameraActive && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center text-slate-300">
