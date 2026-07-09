@@ -169,6 +169,7 @@ export default function VerificarAcceso() {
 
       scannerRef.current = scanner
       await scanner.start()
+      await videoRef.current.play()
       setCameraActive(true)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
@@ -259,13 +260,14 @@ export default function VerificarAcceso() {
         {cameraError && <p className="field-error mt-3">{cameraError}</p>}
 
         <div className="mt-3 rounded-3xl overflow-hidden border border-slate-200 bg-slate-950 text-slate-200">
-          <div className="relative h-56 overflow-hidden bg-slate-900/80">
+          <div className={`relative overflow-hidden bg-slate-900/80 ${cameraActive ? 'h-80 sm:h-96' : 'h-56'}`}>
             <video
               ref={videoRef}
-              className={`w-full h-full object-cover ${cameraActive ? 'block' : 'hidden'}`}
+              className="absolute inset-0 w-full h-full object-cover"
               muted
               playsInline
               autoPlay
+              style={{ opacity: cameraActive ? 1 : 0 }}
             />
             {!cameraActive && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center text-slate-300">
