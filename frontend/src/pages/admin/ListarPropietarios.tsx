@@ -4,14 +4,15 @@ import {
   Download,
   Edit2,
   Home,
-  Plus,
   Phone,
+  Plus,
   RefreshCw,
   Save,
   Trash2,
   X,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import {
   actualizarPropietario,
   eliminarPropietario,
@@ -113,10 +114,10 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
 
           {/* Nombre */}
           <div>
-            <label className="text-gray-400 text-xs mb-1 block">Nombre</label>
+            <label className="text-black text-xs mb-1 block">Nombre</label>
             <input
               value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
+              onChange={(e) => setNombre(e.target.value.toUpperCase())}
               required
               minLength={3}
               maxLength={120}
@@ -124,18 +125,24 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
             />
           </div>
 
-          {/* Torre */}
+          {/* numero de contacto */}
           <div>
-            <label className="text-gray-400 text-xs mb-1 block">Número de contacto</label>
-            <input
-              value={numeroContacto}
-              onChange={(e) => setNumeroContacto(e.target.value)}
-              required
-              minLength={7}
-              maxLength={30}
-              pattern="^\+?[0-9\s()-]+$"
-              className="field"
-            />
+              <label className="text-gray-400 text-xs mb-1 block">
+                Número de contacto
+              </label>
+              <input
+                type="text"
+                value={numeroContacto}
+                onChange={(e) =>
+                  setNumeroContacto(e.target.value.replace(/\D/g, ""))
+                }
+                required
+                minLength={7}
+                maxLength={10}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="field"
+              />
           </div>
 
           {/* Torre */}
@@ -143,9 +150,10 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
             <label className="text-gray-400 text-xs mb-1 block">Torre</label>
             <input
               value={torre}
-              onChange={(e) => setTorre(e.target.value)}
+              onChange={(e) => setTorre(e.target.value.replace(/\D/g, ""))}
               required
-              pattern="^[1-9][0-9]{0,2}$"
+              inputMode='numeric'
+              pattern="[0-9]*"
               className="field"
             />
           </div>
@@ -155,9 +163,10 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
             <label className="text-gray-400 text-xs mb-1 block">Apartamento</label>
             <input
               value={apartamento}
-              onChange={(e) => setApartamento(e.target.value.toUpperCase())}
+              onChange={(e) => setApartamento(e.target.value.toUpperCase().replace(/\D/g, ""))}
               required
-              pattern="^[0-9]{2,4}[A-Z]?$"
+              inputMode='numeric'
+              pattern="[0-9]*"
               className="field uppercase"
             />
           </div>
@@ -253,6 +262,8 @@ export default function ListarPropietarios() {
   const [editing, setEditing] = useState<PropietarioOut | null>(null)
   const [deleting, setDeleting] = useState<PropietarioOut | null>(null)
   const [downloadingQrUid, setDownloadingQrUid] = useState<string | null>(null)
+  const location = useLocation()
+  const isEditMode = new URLSearchParams(location.search).get('mode') === 'edit'
 
   const load = async () => {
     setLoading(true)
@@ -303,26 +314,36 @@ export default function ListarPropietarios() {
   return (
     <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-blue-900 tracking-tight">Propietarios</h1>
-          <p className="text-gray-700 mt-1 text-sm">
-            {loading ? 'Cargando…' : `${propietarios.length} propietario${propietarios.length !== 1 ? 's' : ''} registrado${propietarios.length !== 1 ? 's' : ''}`}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={load}
-            disabled={loading}
-            className="btn-ghost px-4"
-            aria-label="Recargar lista"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          <a href="/admin/registrar" className="btn-primary px-4">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:block">Registrar</span>
-          </a>
+      <div className="mb-8 rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-800 p-4 text-white shadow-[0_20px_50px_rgba(15,23,42,0.18)] sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="max-w-xl">
+            <div className="mb-2 inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-100">
+              Gestión rápida
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">Propietarios</h1>
+            <p className="mt-1 text-sm text-slate-300">
+              {loading ? 'Cargando…' : `${propietarios.length} propietario${propietarios.length !== 1 ? 's' : ''} registrado${propietarios.length !== 1 ? 's' : ''}`}
+            </p>
+            {isEditMode && (
+              <div className="mt-3 inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
+                Modo edición activado
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={load}
+              disabled={loading}
+              className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 text-slate-100 transition-colors hover:bg-white/20"
+              aria-label="Recargar lista"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <Link to="/admin/registrar" className="btn-primary px-4">
+              <Plus className="w-4 h-4" />
+              <span>Registrar</span>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -344,75 +365,81 @@ export default function ListarPropietarios() {
           {propietarios.map((p) => (
             <div
               key={p.uid}
-              className="glass flex items-center gap-4 px-4 py-3 hover:bg-white/[0.09] transition-colors duration-150"
+              className="rounded-[24px] border border-slate-200 bg-white/95 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
             >
-              {/* Photo */}
-              <img
-                src={p.foto_url}
-                alt={p.nombre}
-                className="w-12 h-12 rounded-xl object-cover border border-white/10 flex-shrink-0"
-                onError={(e) => {
-                  ;(e.target as HTMLImageElement).src = avatarSvg(p.nombre)
-                }}
-              />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                {/* Photo */}
+                <img
+                  src={p.foto_url}
+                  alt={p.nombre}
+                  className="h-14 w-14 rounded-2xl object-cover border border-slate-200 shadow-sm flex-shrink-0"
+                  onError={(e) => {
+                    ;(e.target as HTMLImageElement).src = avatarSvg(p.nombre)
+                  }}
+                />
 
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <p className="text-blue-800 font-semibold text-sm truncate">{p.nombre}</p>
-                <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                  <span className="flex items-center gap-1 text-gray-400 text-xs">
-                    <Building2 className="w-3 h-3" />
-                    Torre {p.torre}
-                  </span>
-                  <span className="flex items-center gap-1 text-gray-400 text-xs">
-                    <Home className="w-3 h-3" />
-                    Apto {p.apartamento}
-                  </span>
+                {/* Info */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="truncate text-sm font-semibold text-slate-900">{p.nombre}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                          <Building2 className="w-3 h-3" />
+                          Torre {p.torre}
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                          <Home className="w-3 h-3" />
+                          Apto {p.apartamento}
+                        </span>
+                      </div>
+                    </div>
+                    {isEditMode && (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                        Editar
+                      </span>
+                    )}
+                  </div>
+
                   {p.numero_contacto && (
-                    <span className="flex items-center gap-1 text-gray-400 text-xs">
+                    <div className="mt-2 flex items-center gap-1 text-xs text-slate-500">
                       <Phone className="w-3 h-3" />
                       {p.numero_contacto}
-                    </span>
+                    </div>
                   )}
-                  <span className="text-gray-600 text-xs font-mono tracking-widest hidden sm:block">
-                    {p.uid}
-                  </span>
                 </div>
-              </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 flex-shrink-0">
-                <button
-                  onClick={() => {
-                    void handleDownloadQr(p)
-                  }}
-                  disabled={downloadingQrUid === p.uid}
-                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 hover:bg-emerald-500/20
-                             text-gray-400 hover:text-emerald-400 transition-colors duration-150 disabled:opacity-60"
-                  aria-label="Descargar QR del propietario"
-                >
-                  {downloadingQrUid === p.uid ? (
-                    <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                </button>
-                <button
-                  onClick={() => setEditing(p)}
-                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 hover:bg-blue-500/20
-                             text-gray-400 hover:text-blue-400 transition-colors duration-150"
-                  aria-label="Editar propietario"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setDeleting(p)}
-                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 hover:bg-rose-500/20
-                             text-gray-400 hover:text-rose-400 transition-colors duration-150"
-                  aria-label="Eliminar propietario"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {/* Actions */}
+                <div className="flex items-center gap-2 sm:justify-end">
+                  <button
+                    onClick={() => {
+                      void handleDownloadQr(p)
+                    }}
+                    disabled={downloadingQrUid === p.uid}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 disabled:opacity-60"
+                    aria-label="Descargar QR del propietario"
+                  >
+                    {downloadingQrUid === p.uid ? (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setEditing(p)}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100"
+                    aria-label="Editar propietario"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setDeleting(p)}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100"
+                    aria-label="Eliminar propietario"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}

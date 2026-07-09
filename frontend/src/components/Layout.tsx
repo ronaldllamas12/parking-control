@@ -1,6 +1,6 @@
-import { LogOut, Shield, UserCircle2 } from 'lucide-react'
+import { List, LogOut, PencilLine, Shield, UserCircle2, UserPlus } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const ROLE_META: Record<string, { label: string; classes: string }> = {
@@ -15,13 +15,16 @@ const ROLE_META: Record<string, { label: string; classes: string }> = {
 }
 
 const ADMIN_LINKS = [
-  { to: '/admin/propietarios', label: 'Propietarios' },
-  { to: '/admin/registrar', label: 'Registrar' },
+  { to: '/admin/propietarios', label: 'Listar', icon: List },
+  { to: '/admin/registrar', label: 'Registrar', icon: UserPlus },
+  { to: '/admin/propietarios?mode=edit', label: 'Editar', icon: PencilLine },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const isEditMode = location.pathname === '/admin/propietarios' && new URLSearchParams(location.search).get('mode') === 'edit'
 
   const handleLogout = () => {
     logout()
@@ -120,9 +123,42 @@ export default function Layout({ children }: { children: ReactNode }) {
       </nav>
 
       {/* ── Page content ────────────────────────────────────────────────── */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-10">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-24 sm:pb-10">
         {children}
       </main>
+
+      {user?.role === 'admin' && (
+        <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 px-3 pb-3 pt-2 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-transparent">
+          <div className="mx-auto max-w-md rounded-[24px] border border-white/10 bg-white/95 p-2 shadow-[0_20px_60px_rgba(15,23,42,0.25)] backdrop-blur-xl">
+            <div className="grid grid-cols-3 gap-2">
+              {ADMIN_LINKS.map((link) => {
+                const Icon = link.icon
+                const isActive =
+                  link.label === 'Editar'
+                    ? isEditMode
+                    : location.pathname === link.to.split('?')[0]
+
+                return (
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    className={({ isActive: linkActive }) =>
+                      `flex flex-col items-center justify-center rounded-2xl px-2 py-2.5 text-[11px] font-semibold transition-all duration-200 ${
+                        (link.label === 'Editar' ? isEditMode : linkActive)
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`
+                    }
+                  >
+                    <Icon className="mb-1 h-4 w-4" />
+                    <span>{link.label}</span>
+                  </NavLink>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="border-t border-slate-200 py-4 bg-white/80">

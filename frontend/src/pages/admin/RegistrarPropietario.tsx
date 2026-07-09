@@ -280,14 +280,14 @@ export default function RegistrarPropietario() {
   return (
     <div className="max-w-2xl mx-auto animate-fade-in">
       {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-blue-900 tracking-tight">Registrar Propietario</h1>
-        <p className="text-gray-700 mt-1.5 text-sm">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Registrar Propietario</h1>
+        <p className="text-slate-600 mt-2 text-sm sm:text-base">
           Completa todos los datos para registrar un nuevo propietario y su acceso al parqueadero.
         </p>
       </div>
 
-      <div className="glass p-8">
+      <div className="glass p-4 sm:p-8 rounded-[28px]">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
           {/* Nombre */}
           <FormField label="Nombre completo" required error={errors.nombre?.message}>
@@ -300,14 +300,27 @@ export default function RegistrarPropietario() {
           </FormField>
 
           {/* Numero de contacto */}
-          <FormField label="Número de contacto" required error={errors.numero_contacto?.message}>
-            <input
-              {...register('numero_contacto')}
-              placeholder="Ej: 300 123 4567"
-              className="field"
-              autoComplete="tel"
-              maxLength={10}
-            />
+          <FormField
+              label="Número de contacto"
+              required
+              error={errors.numero_contacto?.message}
+              >
+                <input
+                {...register("numero_contacto", {
+                  pattern: {
+                    value: /^[0-9]+$/,
+                    message: "Solo se permiten números",
+                  },
+                })}
+                placeholder="Ej: 3001234567"
+                className="field"
+                autoComplete="tel"
+                inputMode="numeric"
+                maxLength={10}
+                onInput={(e) => {
+                  e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "");
+                }}
+                />
           </FormField>
 
           {/* Torre + Apartamento */}
@@ -319,10 +332,18 @@ export default function RegistrarPropietario() {
               error={errors.torre?.message}
             >
               <input
-                {...register('torre')}
+                {...register('torre', {
+                  pattern: {
+                    value: /^[0-9]+$/,
+                    message: "Solo se permiten números",
+                  },
+                })}
                 placeholder="Ej: 2"
                 className="field"
                 maxLength={2}
+                onInput={(e) => {
+                  e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").replace(/^0+/, "");
+                }}
               />
             </FormField>
 
@@ -337,6 +358,9 @@ export default function RegistrarPropietario() {
                 placeholder="Ej: 101"
                 className="field uppercase"
                 maxLength={5}
+                onInput={(e) => {
+                  e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").replace(/^0+/, "");
+                }}
               />
             </FormField>
           </div>
