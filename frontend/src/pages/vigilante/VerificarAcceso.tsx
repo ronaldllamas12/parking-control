@@ -1,17 +1,17 @@
 import type { AxiosError } from 'axios'
 import {
-    Building2,
-    Camera,
-    CameraOff,
-    Clock,
-    CreditCard,
-    Home,
-    Phone,
-    QrCode,
-    RotateCcw,
-    Search,
-    ShieldCheck,
-    ShieldX,
+  Building2,
+  Camera,
+  CameraOff,
+  Clock,
+  CreditCard,
+  Home,
+  Phone,
+  QrCode,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  ShieldX,
 } from 'lucide-react'
 import QrScanner from 'qr-scanner'
 import { useEffect, useRef, useState } from 'react'
@@ -216,7 +216,7 @@ export default function VerificarAcceso() {
       {/* Header */}
       <div className="mb-8 text-center">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Verificar Acceso</h1>
-        <p className="text-slate-600 mt-2 text-sm sm:text-base max-w-2xl mx-auto">
+        <p className="text-blue-600 mt-2 text-sm sm:text-base max-w-2xl mx-auto">
           Escanea el QR con la cámara o ingresa manualmente el ID para confirmar acceso rápido.
         </p>
       </div>
@@ -227,7 +227,7 @@ export default function VerificarAcceso() {
       <div className="glass p-4 mb-5 rounded-[28px]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-sm text-slate-700 font-medium">
-            <QrCode className="w-4 h-4 text-blue-600" />
+            <QrCode className="w-8 h-8 text-blue-600" />
             Escáner QR
           </div>
           <button
@@ -236,11 +236,11 @@ export default function VerificarAcceso() {
               void toggleScanner()
             }}
             disabled={cameraLoading}
-            className="btn-ghost px-4 py-2 text-xs"
+            className="btn-primary px-5 py-5 text-xs"
           >
             {cameraLoading ? (
               <>
-                <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" />
+                <span className="w-6 h-6 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" />
                 Iniciando...
               </>
             ) : cameraActive ? (
@@ -271,7 +271,7 @@ export default function VerificarAcceso() {
             />
             {!cameraActive && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center text-slate-300">
-                <Camera className="w-10 h-10 text-slate-300" />
+                <Camera className="w-14 h-14 text-slate-300" />
                 <p className="text-sm font-semibold">Cámara inactiva</p>
                 <p className="text-xs text-slate-400 max-w-xs">
                   Toca el botón de arriba para iniciar el escaneo de QR.
@@ -279,7 +279,7 @@ export default function VerificarAcceso() {
               </div>
             )}
           </div>
-          <div className="p-3 text-center text-xs text-slate-400 bg-slate-950/95">
+          <div className="p-3 text-center text-xs text-slate-400 bg-blue-950">
             {cameraActive ? 'Apunta al código QR del propietario' : 'La cámara se mostrará aquí cuando esté activa.'}
           </div>
         </div>
@@ -353,8 +353,8 @@ export default function VerificarAcceso() {
           </div>
 
           {/* Profile card */}
-          <div className="glass overflow-hidden">
-            <div className="px-5 pb-5 pt-4">
+          <div className="glass overflow-hidden bg-gray-300">
+            <div className="px-5 pb-5 pt-4 ">
               {/* Info grid */}
               <div className="grid grid-cols-2 gap-3">
                 <InfoCard
@@ -440,7 +440,7 @@ export default function VerificarAcceso() {
                   <img
                     src={item.foto_url}
                     alt={item.nombre}
-                    className="w-11 h-11 rounded-lg object-cover border border-slate-200 flex-shrink-0"
+                    className="w-14 h-14 rounded-lg object-cover border border-slate-200 flex-shrink-0"
                     onError={(e) => {
                       ;(e.target as HTMLImageElement).src = avatarSvg(item.nombre)
                     }}
@@ -449,6 +449,9 @@ export default function VerificarAcceso() {
                     <p className="text-sm font-semibold text-slate-900 truncate">{item.nombre}</p>
                     <p className="text-xs text-slate-500 truncate">
                       Torre {item.torre} · Apto {item.apartamento}
+                    </p>
+                    <p className="text-xs text-slate-500 truncate">
+                      ID {item.uid}
                     </p>
                     {phoneHref(item.numero_contacto) ? (
                       <a
