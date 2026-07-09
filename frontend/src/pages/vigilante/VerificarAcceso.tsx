@@ -247,11 +247,15 @@ export default function VerificarAcceso() {
         {cameraError && <p className="field-error mt-3">{cameraError}</p>}
 
         <div className="mt-3 rounded-3xl overflow-hidden border border-slate-200 bg-slate-950 text-slate-200">
-          <div className={`relative overflow-hidden ${cameraActive ? 'h-56' : 'h-44'} bg-slate-900/80`}>
-            {cameraActive ? (
-              <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-slate-300">
+          <div className="relative h-56 overflow-hidden bg-slate-900/80">
+            <video
+              ref={videoRef}
+              className={`w-full h-full object-cover ${cameraActive ? 'block' : 'hidden'}`}
+              muted
+              playsInline
+            />
+            {!cameraActive && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center text-slate-300">
                 <Camera className="w-10 h-10 text-slate-300" />
                 <p className="text-sm font-semibold">Cámara inactiva</p>
                 <p className="text-xs text-slate-400 max-w-xs">
