@@ -236,8 +236,8 @@ def webauthn_register_options(payload: dict = Body(...), db: Session = Depends(g
     if not user:
         raise AppException(status_code=404, detail="Usuario no encontrado")
 
-    rp = PublicKeyCredentialRpEntity(request.url.hostname if request else "localhost", "Control de Acceso")
-    server = Fido2Server(rp)
+    RP_ID = os.getenv("WEBAUTHN_RP_ID","localhost")
+    rp = PublicKeyCredentialRpEntity(name="Control de Acceso", id=RP_ID)
 
     user_entity = PublicKeyCredentialUserEntity(id=str(user.id).encode("utf-8"), name=user.username, display_name=user.username)
     options, state = server.register_begin(user_entity, credentials=[])
@@ -288,7 +288,8 @@ def webauthn_register_verify(body: WebAuthnRegisterVerifyIn, db: Session = Depen
     except Exception:
         raise AppException(status_code=400, detail="Invalid stored state")
 
-    rp = PublicKeyCredentialRpEntity(request.url.hostname if request else "localhost", "Control de Acceso")
+    RP_ID = os.getenv("WEBAUTHN_RP_ID","localhost")
+    rp = PublicKeyCredentialRpEntity(name="Control de Acceso", id=RP_ID)
     server = Fido2Server(rp)
 
     client_data = _ensure_bytes_from_b64(body.response.get("clientDataJSON"))
