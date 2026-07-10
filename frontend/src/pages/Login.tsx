@@ -184,7 +184,7 @@ export default function Login() {
                   setApiError(`Autenticación con huella falló: ${errMsg}`)
                 }
               }}
-              className="mt-3 w-full inline-flex items-center justify-center gap-2 border border-white/10 bg-white/5 text-white py-2 rounded-xl"
+              className="mt-3 w-full inline-flex items-center justify-center gap-2 border border-white/10 bg-blue text-white py-2 rounded-xl"
             >
               Iniciar con huella
             </button>
