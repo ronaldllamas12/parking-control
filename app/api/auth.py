@@ -22,7 +22,8 @@ try:
     from fido2 import cbor
     from fido2.server import Fido2Server
     from fido2.utils import websafe_decode, websafe_encode
-    from fido2.webauthn import (PublicKeyCredentialRpEntity,
+    from fido2.webauthn import (AttestedCredentialData,
+                                PublicKeyCredentialRpEntity,
                                 PublicKeyCredentialUserEntity)
 except Exception:
     Fido2Server = None  # type: ignore
@@ -170,41 +171,32 @@ def webauthn_assertion_verify(body: WebAuthnAssertionVerifyIn, db: Session = Dep
     rp = PublicKeyCredentialRpEntity(name="Control de Acceso", id=RP_ID)
     server = Fido2Server(rp)
 
-    # Extract client response bytes
-    client_data = _ensure_bytes_from_b64(body.response.get("clientDataJSON"))
-    authenticator_data = _ensure_bytes_from_b64(body.response.get("authenticatorData"))
-    signature = _ensure_bytes_from_b64(body.response.get("signature"))
-
-    # Build credential list for verification
-    # fido2 expects a list of credential sources with id and public_key
+    # Reconstruct AttestedCredentialData from stored bytes
     try:
-        stored_pubkey = _ensure_bytes_from_b64(cred.public_key)
-    except Exception:
-        stored_pubkey = cred.public_key.encode()
+        attested = AttestedCredentialData(_ensure_bytes_from_b64(cred.public_key))
+    except Exception as e:
+        logger.exception("Failed to reconstruct AttestedCredentialData: %s", e)
+        raise AppException(status_code=400, detail="Credencial almacenada inválida; por favor re-registra la huella")
 
-    sources = [
-        {
-            "credential_id": _ensure_bytes_from_b64(cred.credential_id),
-            "public_key": stored_pubkey,
-            "sign_count": cred.sign_count,
-        }
-    ]
+    credentials_list = [attested]
+
+    # Build response dict using base64url strings (fido2 2.x decodes internally)
+    response_dict = {
+        "rawId": body.rawId,
+        "type": body.type,
+        "response": {
+            "clientDataJSON": body.response.get("clientDataJSON"),
+            "authenticatorData": body.response.get("authenticatorData"),
+            "signature": body.response.get("signature"),
+            "userHandle": body.response.get("userHandle"),
+        },
+    }
 
     try:
-        auth_data = server.authenticate_complete(state, sources, client_data, authenticator_data, signature)
+        server.authenticate_complete(state, credentials_list, response_dict)
     except Exception as e:
         logger.exception("WebAuthn authenticate failed: %s", e)
         raise AppException(status_code=400, detail="Autenticacion WebAuthn fallida")
-
-    # Update sign_count in DB if available
-    try:
-        new_count = auth_data.get("sign_count") if isinstance(auth_data, dict) else None
-        if new_count is not None:
-            cred.sign_count = new_count
-            db.add(cred)
-            db.commit()
-    except Exception:
-        db.rollback()
 
     # Issue token
     user = db.query(User).filter_by(id=cred.user_id).first()
@@ -294,25 +286,35 @@ def webauthn_register_verify(body: WebAuthnRegisterVerifyIn, db: Session = Depen
     rp = PublicKeyCredentialRpEntity(name="Control de Acceso", id=RP_ID)
     server = Fido2Server(rp)
 
-    client_data = _ensure_bytes_from_b64(body.response.get("clientDataJSON"))
-    att_obj = _ensure_bytes_from_b64(body.response.get("attestationObject"))
+    # Build response dict using base64url strings (fido2 2.x decodes internally)
+    response_dict = {
+        "rawId": body.rawId,
+        "type": body.type,
+        "response": {
+            "clientDataJSON": body.response.get("clientDataJSON"),
+            "attestationObject": body.response.get("attestationObject"),
+        },
+    }
 
     try:
-        reg_res = server.register_complete(state, client_data, att_obj)
+        auth_data = server.register_complete(state, response_dict)
     except Exception as e:
         logger.exception("WebAuthn register failed: %s", e)
         raise AppException(status_code=400, detail="Registro WebAuthn fallido")
 
-    # reg_res typically contains credential_data with id, public_key, sign_count
-    cred_data = reg_res.credential_data
+    # Store full AttestedCredentialData bytes — allows full reconstruction later
+    cred_data = auth_data.credential_data
     credential_id_b64 = _base64url(cred_data.credential_id)
-    # store public_key as cbor-encoded bytes
-    try:
-        pubkey_cbor = cbor.encode(cred_data.credential_public_key)
-    except Exception:
-        pubkey_cbor = cbor.encode(cred_data.credential_public_key.__dict__)
+    # bytes(cred_data) is the full AttestedCredentialData (AAGUID + id + CBOR pubkey)
+    attested_b64 = _base64url(bytes(cred_data))
+    initial_sign_count = getattr(auth_data, 'counter', 0) or getattr(auth_data, 'sign_count', 0) or 0
 
-    new_cred = WebAuthnCredential(user_id=db.query(User).filter_by(username=username).first().id, credential_id=credential_id_b64, public_key=_base64url(pubkey_cbor), sign_count=cred_data.sign_count)
+    new_cred = WebAuthnCredential(
+        user_id=db.query(User).filter_by(username=username).first().id,
+        credential_id=credential_id_b64,
+        public_key=attested_b64,
+        sign_count=initial_sign_count,
+    )
     db.add(new_cred)
     # remove challenge
     db.delete(chal)

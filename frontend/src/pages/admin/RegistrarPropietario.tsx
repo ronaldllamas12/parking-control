@@ -54,10 +54,10 @@ function FormField({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-black mb-2">
+      <label className="field-label">
         {label}
-        {required && <span className="text-rose-400 ml-1">*</span>}
-        {hint && <span className="text-gray-100 font-normal ml-2 text-xs">— {hint}</span>}
+        {required && <span className="text-rose-500 ml-1">*</span>}
+        {hint && <span className="text-slate-400 font-normal normal-case tracking-normal ml-1.5 text-xs">— {hint}</span>}
       </label>
       {children}
       {error && (
@@ -78,23 +78,17 @@ function InfoRow({ label, value, mono }: { label: string; value: string; mono?: 
     setTimeout(() => setCopied(false), 1500)
   }
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
-      <span className="text-blue-900 text-sm">{label}</span>
+    <div className="flex items-center justify-between py-2.5 border-b border-surface-200 last:border-0">
+      <span className="text-slate-500 text-sm">{label}</span>
       <div className="flex items-center gap-2">
-        <span
-          className={`text-black text-sm ${
-            mono ? 'font-mono bg-white px-2 py-0.5 rounded-md tracking-widest' : 'font-medium'
-          }`}
-        >
+        <span className={`text-slate-900 text-sm ${
+          mono ? 'font-mono bg-brand-50 text-brand-800 px-2.5 py-0.5 rounded-lg tracking-widest border border-brand-100' : 'font-semibold'
+        }`}>
           {value}
         </span>
         {mono && (
-          <button
-            onClick={handleCopy}
-            className="text-gray-500 hover:text-gray-200 transition-colors"
-            aria-label="Copiar UID"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+          <button onClick={handleCopy} className="btn-icon" aria-label="Copiar">
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
         )}
       </div>
@@ -196,81 +190,71 @@ export default function RegistrarPropietario() {
   if (success) {
     return (
       <div className="max-w-md mx-auto animate-scale-in">
-        <div className="glass p-8">
-          {/* Icon */}
-          <div className="w-16 h-16 bg-emerald-500/15 rounded-full flex items-center justify-center mx-auto mb-5 ring-1 ring-emerald-500/30">
-            <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+        <div className="card-lg overflow-hidden">
+
+          {/* Success header */}
+          <div className="bg-gradient-to-br from-emerald-500 to-teal-600 px-6 py-8 text-center text-white relative overflow-hidden">
+            <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+            <div className="w-16 h-16 rounded-3xl bg-white/20 border border-white/30 backdrop-blur
+                            flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <CheckCircle2 className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-xl font-extrabold tracking-tight">¡Propietario registrado!</h2>
+            <p className="text-white/70 text-sm mt-1">Los datos fueron guardados exitosamente.</p>
           </div>
 
-          <h2 className="text-xl font-bold text-blue/900 text-center mb-1">
-            Propietario registrado
-          </h2>
-          <p className="text-blue-400 text-sm text-center mb-7">
-            El propietario fue guardado exitosamente en el sistema.
-          </p>
-
-          {/* Summary */}
-          <div className="bg-gray/500 rounded-xl px-4 py-2 mb-6 space-y-0.5">
-            <InfoRow label="UID de acceso" value={success.uid} mono />
-            <InfoRow label="Nombre" value={success.nombre} />
-            <InfoRow label="Número de contacto" value={success.numero_contacto ?? 'Sin registrar'} />
-            <InfoRow label="Torre" value={success.torre} />
-            <InfoRow label="Apartamento" value={success.apartamento} />
-          </div>
-
-          {/* Photo thumbnail */}
-          {success.foto_url && (
-            <div className="flex justify-center mb-6">
-              <img
-                src={success.foto_url}
-                alt={success.nombre}
-                className="w-24 h-24 rounded-2xl object-cover border border-white/10 shadow-xl"
-              />
-            </div>
-          )}
-
-          {/* UID QR */}
-          <div className="bg-gray-200 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <QrCode className="w-4 h-4 text-blue-600" />
-              <p className="text-sm text-blue-900 font-medium">Código QR del UID</p>
+          <div className="px-6 py-6 space-y-5">
+            {/* Summary */}
+            <div className="bg-surface-50 border border-surface-200 rounded-2xl px-4 py-1">
+              <InfoRow label="UID de acceso" value={success.uid} mono />
+              <InfoRow label="Nombre" value={success.nombre} />
+              <InfoRow label="Contacto" value={success.numero_contacto ?? 'Sin registrar'} />
+              <InfoRow label="Torre" value={success.torre} />
+              <InfoRow label="Apartamento" value={success.apartamento} />
             </div>
 
-            {qrCodeDataUrl ? (
-              <>
-                <div className="flex justify-center mb-3">
-                  <img
-                    src={qrCodeDataUrl}
-                    alt={`QR UID ${success.uid}`}
-                    className="w-44 h-44 rounded-lg bg-white p-2"
-                  />
-                </div>
-                <a
-                  href={qrCodeDataUrl}
-                  download={qrFileName(success.nombre, success.uid)}
-                  className="btn-ghost w-full"
-                >
-                  <Download className="w-4 h-4" />
-                  Descargar QR
-                </a>
-              </>
-            ) : (
-              <p className="text-sm text-gray-300">Generando QR...</p>
+            {/* Photo */}
+            {success.foto_url && (
+              <div className="flex justify-center">
+                <img
+                  src={success.foto_url} alt={success.nombre}
+                  className="w-24 h-24 rounded-3xl object-cover border-2 border-surface-200 shadow-card-lg"
+                />
+              </div>
             )}
 
-            {qrError && <p className="field-error mt-2">{qrError}</p>}
-          </div>
+            {/* QR */}
+            <div className="bg-surface-50 border border-surface-200 rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 rounded-lg bg-brand-100 flex items-center justify-center">
+                  <QrCode className="w-4 h-4 text-brand-600" />
+                </div>
+                <p className="text-sm font-bold text-slate-700">Código QR del UID</p>
+              </div>
+              {qrCodeDataUrl ? (
+                <>
+                  <div className="flex justify-center mb-4">
+                    <img src={qrCodeDataUrl} alt={`QR ${success.uid}`}
+                      className="w-44 h-44 rounded-2xl bg-white p-2 shadow-card border border-surface-200" />
+                  </div>
+                  <a href={qrCodeDataUrl} download={qrFileName(success.nombre, success.uid)} className="btn-ghost w-full">
+                    <Download className="w-4 h-4" />Descargar QR
+                  </a>
+                </>
+              ) : qrError ? (
+                <p className="field-error">{qrError}</p>
+              ) : (
+                <p className="text-sm text-slate-400">Generando QR…</p>
+              )}
+            </div>
 
-          <button
-            onClick={() => {
-              setSuccess(null)
-              setQrCodeDataUrl(null)
-              setQrError(null)
-            }}
-            className="btn-primary w-full"
-          >
-            Registrar otro propietario
-          </button>
+            <button
+              onClick={() => { setSuccess(null); setQrCodeDataUrl(null); setQrError(null) }}
+              className="btn-primary w-full"
+            >
+              <UserPlus className="w-4 h-4" />Registrar otro propietario
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -279,15 +263,19 @@ export default function RegistrarPropietario() {
   // ── Registration form ────────────────────────────────────────────────────────
   return (
     <div className="max-w-2xl mx-auto animate-fade-in">
+
       {/* Page header */}
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Registrar Propietario</h1>
-        <p className="text-slate-600 mt-2 text-sm sm:text-base">
-          Completa todos los datos para registrar un nuevo propietario y su acceso al parqueadero.
-        </p>
+      <div className="page-header">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-9 h-9 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-brand">
+            <UserPlus className="w-5 h-5 text-white" />
+          </div>
+          <h1 className="page-title">Registrar Propietario</h1>
+        </div>
+        <p className="page-subtitle pl-12">Completa los datos para añadir un nuevo acceso al parqueadero.</p>
       </div>
 
-      <div className="glass p-4 sm:p-8 rounded-[28px]">
+      <div className="card-lg p-6 sm:p-8">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
           {/* Nombre */}
           <FormField label="Nombre completo" required error={errors.nombre?.message}>
@@ -373,15 +361,12 @@ export default function RegistrarPropietario() {
 
             <div
               onDrop={handleDrop}
-              onDragOver={(e) => {
-                e.preventDefault()
-                setIsDragging(true)
-              }}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
               onDragLeave={() => setIsDragging(false)}
-              className={`border-2 border-dashed rounded-xl transition-all duration-200 ${
+              className={`border-2 border-dashed rounded-2xl transition-all duration-200 ${
                 isDragging
-                  ? 'border-blue-400 bg-blue-400/10 scale-[1.01]'
-                  : 'border-white/15 hover:border-white/30'
+                  ? 'border-brand-400 bg-brand-50 scale-[1.01]'
+                  : 'border-surface-200 hover:border-brand-300 bg-surface-50'
               }`}
             >
               {photoPreview ? (
@@ -390,36 +375,27 @@ export default function RegistrarPropietario() {
                   <img
                     src={photoPreview}
                     alt="Vista previa"
-                    className="w-20 h-20 rounded-xl object-cover flex-shrink-0 border border-white/10"
+                    className="w-20 h-20 rounded-2xl object-cover flex-shrink-0 border-2 border-surface-200 shadow-card"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{photo?.name}</p>
-                    <p className="text-gray-400 text-xs mt-0.5">
-                      {((photo?.size ?? 0) / 1024).toFixed(0)} KB
-                    </p>
+                    <p className="text-slate-800 text-sm font-semibold truncate">{photo?.name}</p>
+                    <p className="text-slate-400 text-xs mt-0.5">{((photo?.size ?? 0) / 1024).toFixed(0)} KB</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={removePhoto}
-                    className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex-shrink-0"
-                    aria-label="Quitar imagen"
-                  >
-                    <X className="w-4 h-4 text-gray-300" />
+                  <button type="button" onClick={removePhoto} className="btn-icon" aria-label="Quitar imagen">
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
                 /* Drop zone */
                 <label className="flex flex-col items-center justify-center py-10 cursor-pointer select-none">
-                  <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center mb-3">
-                    <ImagePlus className="w-7 h-7 text-gray-500" />
+                  <div className="w-14 h-14 bg-brand-100 rounded-2xl flex items-center justify-center mb-3">
+                    <ImagePlus className="w-7 h-7 text-brand-500" />
                   </div>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-slate-600">
                     Arrastra una foto o{' '}
-                    <span className="text-blue-600 font-medium underline underline-offset-2">
-                      haz clic aquí
-                    </span>
+                    <span className="text-brand-600 font-semibold underline underline-offset-2">haz clic aquí</span>
                   </p>
-                  <p className="text-xs text-gray-600 mt-1">PNG · JPG · WebP — máx. 5 MB</p>
+                  <p className="text-xs text-slate-400 mt-1">PNG · JPG · WebP — máx. 5 MB</p>
                   <input
                     type="file"
                     accept="image/*"
@@ -445,9 +421,9 @@ export default function RegistrarPropietario() {
 
           {/* API error */}
           {apiError && (
-            <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3.5 flex items-start gap-2.5 animate-fade-in">
-              <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-rose-300">{apiError}</p>
+            <div className="flex items-start gap-2.5 bg-rose-50 border border-rose-200 rounded-2xl p-3.5 animate-fade-in">
+              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-rose-700">{apiError}</p>
             </div>
           )}
 

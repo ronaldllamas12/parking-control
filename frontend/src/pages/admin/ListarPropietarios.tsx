@@ -72,103 +72,55 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-      <div className="glass w-full max-w-md animate-scale-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md">
+      <div className="card-lg w-full max-w-md animate-scale-in overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-red/10">
-          <h2 className="text-blue-800 font-bold text-lg">Editar Propietario</h2>
-          <button onClick={onClose} className="text-red-400 hover:text-red-600  transition-colors">
-            <X className="w-5 h-5" />
+        <div className="bg-gradient-premium px-5 py-4 flex items-center justify-between">
+          <h2 className="text-white font-bold text-base">Editar Propietario</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Foto */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 p-3 bg-surface-50 rounded-2xl border border-surface-200">
             <img
-              src={preview}
-              alt={nombre}
-              className="w-16 h-16 rounded-xl object-cover border-2 border-white/20 flex-shrink-0"
-              onError={(e) => {
-                ;(e.target as HTMLImageElement).src = avatarSvg(nombre)
-              }}
+              src={preview} alt={nombre}
+              className="w-16 h-16 rounded-2xl object-cover border-2 border-surface-200 shadow-card flex-shrink-0"
+              onError={(e) => { ;(e.target as HTMLImageElement).src = avatarSvg(nombre) }}
             />
             <div>
-              <p className="text-gray-400 text-xs mb-1.5">Foto (opcional)</p>
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className="btn-ghost text-xs px-3 py-2"
-              >
+              <p className="text-slate-500 text-xs mb-1.5 font-medium">Foto (opcional)</p>
+              <button type="button" onClick={() => fileRef.current?.click()} className="btn-secondary text-xs px-3 py-2">
                 Cambiar foto
               </button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFoto}
-              />
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFoto} />
             </div>
           </div>
 
           {/* Nombre */}
           <div>
-            <label className="text-black text-xs mb-1 block">Nombre</label>
-            <input
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value.toUpperCase())}
-              required
-              minLength={3}
-              maxLength={120}
-              className="field"
-            />
+            <label className="field-label">Nombre</label>
+            <input value={nombre} onChange={(e) => setNombre(e.target.value.toUpperCase())} required minLength={3} maxLength={120} className="field" />
           </div>
 
           {/* numero de contacto */}
           <div>
-              <label className="text-gray-400 text-xs mb-1 block">
-                Número de contacto
-              </label>
-              <input
-                type="text"
-                value={numeroContacto}
-                onChange={(e) =>
-                  setNumeroContacto(e.target.value.replace(/\D/g, ""))
-                }
-                required
-                minLength={7}
-                maxLength={10}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                className="field"
-              />
+            <label className="field-label">Número de contacto</label>
+            <input type="text" value={numeroContacto} onChange={(e) => setNumeroContacto(e.target.value.replace(/\D/g, ''))} required minLength={7} maxLength={10} inputMode="numeric" pattern="[0-9]*" className="field" />
           </div>
 
           {/* Torre */}
           <div>
-            <label className="text-gray-400 text-xs mb-1 block">Torre</label>
-            <input
-              value={torre}
-              onChange={(e) => setTorre(e.target.value.replace(/\D/g, ""))}
-              required
-              inputMode='numeric'
-              pattern="[0-9]*"
-              className="field"
-            />
+            <label className="field-label">Torre</label>
+            <input value={torre} onChange={(e) => setTorre(e.target.value.replace(/\D/g, ''))} required inputMode="numeric" pattern="[0-9]*" className="field" />
           </div>
 
           {/* Apartamento */}
           <div>
-            <label className="text-gray-400 text-xs mb-1 block">Apartamento</label>
-            <input
-              value={apartamento}
-              onChange={(e) => setApartamento(e.target.value.toUpperCase().replace(/\D/g, ""))}
-              required
-              inputMode='numeric'
-              pattern="[0-9]*"
-              className="field uppercase"
-            />
+            <label className="field-label">Apartamento</label>
+            <input value={apartamento} onChange={(e) => setApartamento(e.target.value.toUpperCase().replace(/\D/g, ''))} required inputMode="numeric" pattern="[0-9]*" className="field uppercase" />
           </div>
 
           {error && <p className="field-error">{error}</p>}
@@ -218,36 +170,30 @@ function DeleteConfirm({ item, onClose, onDeleted }: DeleteConfirmProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="glass w-full max-w-sm animate-scale-in p-6 text-center">
-        <div className="w-14 h-14 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4 ring-1 ring-rose-500/30">
-          <Trash2 className="w-6 h-6 text-rose-400" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md">
+      <div className="card-lg w-full max-w-sm animate-scale-in overflow-hidden">
+        <div className="bg-gradient-to-br from-rose-600 to-rose-500 px-5 py-6 text-center text-white">
+          <div className="w-14 h-14 rounded-full bg-white/20 border border-white/30 flex items-center justify-center mx-auto mb-3">
+            <Trash2 className="w-6 h-6" />
+          </div>
+          <h2 className="font-extrabold text-lg">Eliminar Propietario</h2>
+          <p className="text-white/75 text-sm mt-1">{item.nombre}</p>
+          <p className="text-white/50 text-xs mt-0.5">Torre {item.torre} · Apto {item.apartamento}</p>
         </div>
-        <h2 className="text-white font-bold text-lg mb-1">Eliminar Propietario</h2>
-        <p className="text-gray-400 text-sm mb-1">
-          ¿Estás seguro de eliminar a <span className="text-white font-medium">{item.nombre}</span>?
-        </p>
-        <p className="text-gray-500 text-xs mb-5">
-          Torre {item.torre} · Apto {item.apartamento} · UID {item.uid}
-        </p>
-        {error && <p className="field-error justify-center mb-3">{error}</p>}
-        <div className="flex gap-3">
-          <button onClick={onClose} className="btn-cancel flex-1">
-            Cancelar
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="inline-flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-50
-                       text-white font-semibold rounded-xl px-6 py-3 transition-all duration-200 flex-1"
-          >
-            {deleting ? (
-              <span className="w-4 h-4 border-2 border-red border-t-red rounded-full animate-spin" />
-            ) : (
-              <Trash2 className="w-4 h-4" />
-            )}
-            Eliminar
-          </button>
+        <div className="p-5">
+          <p className="text-center text-slate-600 text-sm mb-4">Esta acción es irreversible. ¿Continuar?</p>
+          {error && <p className="field-error justify-center mb-3">{error}</p>}
+          <div className="flex gap-3">
+            <button onClick={onClose} className="btn-cancel flex-1">Cancelar</button>
+            <button onClick={handleDelete} disabled={deleting}
+              className="flex-1 inline-flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50
+                         text-white font-semibold rounded-2xl px-6 py-3 text-sm transition-all duration-200">
+              {deleting
+                ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                : <Trash2 className="w-4 h-4" />}
+              Eliminar
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -313,35 +259,30 @@ export default function ListarPropietarios() {
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
-      <div className="mb-8 rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-800 p-4 text-white shadow-[0_20px_50px_rgba(15,23,42,0.18)] sm:p-6">
+
+      {/* Premium header */}
+      <div className="page-header mb-7 rounded-3xl bg-gradient-dark p-5 sm:p-6 text-white shadow-float">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="max-w-xl">
-            <div className="mb-2 inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-100">
+          <div>
+            <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white/80 mb-2">
               Gestión rápida
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight">Propietarios</h1>
-            <p className="mt-1 text-sm text-slate-300">
+            </span>
+            <h1 className="text-2xl font-extrabold tracking-tight">Propietarios</h1>
+            <p className="mt-0.5 text-sm text-white/55">
               {loading ? 'Cargando…' : `${propietarios.length} propietario${propietarios.length !== 1 ? 's' : ''} registrado${propietarios.length !== 1 ? 's' : ''}`}
             </p>
             {isEditMode && (
-              <div className="mt-3 inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
+              <span className="mt-2 inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-xs text-emerald-300 font-semibold">
                 Modo edición activado
-              </div>
+              </span>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={load}
-              disabled={loading}
-              className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 text-slate-100 transition-colors hover:bg-white/20"
-              aria-label="Recargar lista"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <button onClick={load} disabled={loading} className="btn-icon w-10 h-10" aria-label="Recargar lista">
+              <RefreshCw className={`w-4 h-4 text-white ${loading ? 'animate-spin' : ''}`} />
             </button>
-            <Link to="/admin/registrar" className="btn-primary px-4">
-              <Plus className="w-4 h-4" />
-              <span>Registrar</span>
+            <Link to="/admin/registrar" className="btn-primary px-4 py-2.5 text-xs">
+              <Plus className="w-4 h-4" />Registrar
             </Link>
           </div>
         </div>
@@ -349,113 +290,71 @@ export default function ListarPropietarios() {
 
       {/* Error */}
       {error && (
-        <div className="glass border-rose-500/20 p-4 text-rose-300 text-sm mb-6">{error}</div>
+        <div className="flex items-center gap-2.5 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3 text-rose-700 text-sm mb-5">{error}</div>
       )}
 
-      {/* Empty state */}
+      {/* Empty */}
       {!loading && !error && propietarios.length === 0 && (
-        <div className="glass p-12 text-center">
-          <p className="text-gray-400 text-sm">No hay propietarios registrados.</p>
+        <div className="card-lg p-12 text-center">
+          <p className="text-slate-400 text-sm">No hay propietarios registrados aún.</p>
+          <Link to="/admin/registrar" className="btn-primary mt-4 inline-flex"><Plus className="w-4 h-4" />Registrar primero</Link>
         </div>
       )}
 
-      {/* List */}
+      {/* Grid */}
       {propietarios.length > 0 && (
-        <div className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           {propietarios.map((p) => (
             <div
               key={p.uid}
-              className="rounded-[24px] border border-slate-200 bg-white/95 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+              className="card p-4 flex items-center gap-3 hover:-translate-y-0.5 hover:shadow-card-lg transition-all duration-200"
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                {/* Photo */}
-                <img
-                  src={p.foto_url}
-                  alt={p.nombre}
-                  className="h-14 w-14 rounded-2xl object-cover border border-slate-200 shadow-sm flex-shrink-0"
-                  onError={(e) => {
-                    ;(e.target as HTMLImageElement).src = avatarSvg(p.nombre)
-                  }}
-                />
-
-                {/* Info */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="truncate text-sm font-semibold text-slate-900">{p.nombre}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-                          <Building2 className="w-3 h-3" />
-                          Torre {p.torre}
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-                          <Home className="w-3 h-3" />
-                          Apto {p.apartamento}
-                        </span>
-                      </div>
-                    </div>
-                    {isEditMode && (
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                        Editar
-                      </span>
-                    )}
-                  </div>
-
-                  {p.numero_contacto && (
-                    <div className="mt-2 flex items-center gap-1 text-xs text-slate-500">
-                      <Phone className="w-3 h-3" />
-                      {p.numero_contacto}
-                    </div>
-                  )}
+              <img
+                src={p.foto_url} alt={p.nombre}
+                className="h-14 w-14 rounded-2xl object-cover border border-surface-200 shadow-sm flex-shrink-0"
+                onError={(e) => { ;(e.target as HTMLImageElement).src = avatarSvg(p.nombre) }}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-slate-900">{p.nombre}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="badge-blue"><Building2 className="w-2.5 h-2.5" />T{p.torre}</span>
+                  <span className="badge bg-surface-100 text-slate-600 border border-surface-200"><Home className="w-2.5 h-2.5" />{p.apartamento}</span>
                 </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-2 sm:justify-end">
-                  <button
-                    onClick={() => {
-                      void handleDownloadQr(p)
-                    }}
-                    disabled={downloadingQrUid === p.uid}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 disabled:opacity-60"
-                    aria-label="Descargar QR del propietario"
-                  >
-                    {downloadingQrUid === p.uid ? (
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setEditing(p)}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100"
-                    aria-label="Editar propietario"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setDeleting(p)}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100"
-                    aria-label="Eliminar propietario"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                {p.numero_contacto && (
+                  <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-400">
+                    <Phone className="w-3 h-3" />{p.numero_contacto}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <button onClick={() => { void handleDownloadQr(p) }} disabled={downloadingQrUid === p.uid}
+                  className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors disabled:opacity-60"
+                  aria-label="Descargar QR">
+                  {downloadingQrUid === p.uid
+                    ? <span className="w-3.5 h-3.5 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+                    : <Download className="w-3.5 h-3.5" />}
+                </button>
+                <button onClick={() => setEditing(p)}
+                  className="w-8 h-8 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-600 flex items-center justify-center transition-colors"
+                  aria-label="Editar">
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => setDeleting(p)}
+                  className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors"
+                  aria-label="Eliminar">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Modals */}
       {editing && (
         <EditModal item={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />
       )}
       {deleting && (
-        <DeleteConfirm
-          item={deleting}
-          onClose={() => setDeleting(null)}
-          onDeleted={handleDeleted}
-        />
+        <DeleteConfirm item={deleting} onClose={() => setDeleting(null)} onDeleted={handleDeleted} />
       )}
     </div>
   )
