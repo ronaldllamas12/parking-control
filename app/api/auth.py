@@ -166,7 +166,8 @@ def webauthn_assertion_verify(body: WebAuthnAssertionVerifyIn, db: Session = Dep
     except Exception:
         raise AppException(status_code=400, detail="Invalid stored state")
 
-    rp = PublicKeyCredentialRpEntity(name="Control de Acceso", id=(request.url.hostname if request else "localhost"))
+    RP_ID = os.getenv("WEBAUTHN_RP_ID","localhost")
+    rp = PublicKeyCredentialRpEntity(name="Control de Acceso", id=RP_ID)
     server = Fido2Server(rp)
 
     # Extract client response bytes
@@ -238,6 +239,7 @@ def webauthn_register_options(payload: dict = Body(...), db: Session = Depends(g
 
     RP_ID = os.getenv("WEBAUTHN_RP_ID","localhost")
     rp = PublicKeyCredentialRpEntity(name="Control de Acceso", id=RP_ID)
+    server = Fido2Server(rp)
 
     user_entity = PublicKeyCredentialUserEntity(id=str(user.id).encode("utf-8"), name=user.username, display_name=user.username)
     options, state = server.register_begin(user_entity, credentials=[])
