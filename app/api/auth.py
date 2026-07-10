@@ -17,6 +17,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 try:
+    import pickle
+
     from fido2 import cbor
     from fido2.server import Fido2Server
     from fido2.utils import websafe_decode, websafe_encode
@@ -32,8 +34,16 @@ logger = logging.getLogger(__name__)
 # Challenge persistence uses DB table WebAuthnChallenge
 
 
-def _base64url(b: bytes) -> str:
-    return websafe_encode(b).decode('utf-8')
+def _base64url(b: bytes | str) -> str:
+    # accept bytes or already-encoded str
+    if isinstance(b, (bytes, bytearray)):
+        res = websafe_encode(b)
+        return res.decode('utf-8') if isinstance(res, (bytes, bytearray)) else res
+    if isinstance(b, str):
+        return b
+    # fallback
+    res = websafe_encode(bytes(b))
+    return res.decode('utf-8') if isinstance(res, (bytes, bytearray)) else res
 
 
 def _ensure_bytes_from_b64(u: str) -> bytes:
@@ -84,7 +94,7 @@ def webauthn_assertion_options(payload: dict = Body(...), db: Session = Depends(
     if Fido2Server is None:
         raise AppException(status_code=500, detail="WebAuthn server library not installed")
 
-    rp = PublicKeyCredentialRpEntity(request.url.hostname if request else "localhost", "Control de Acceso")
+    rp = PublicKeyCredentialRpEntity(name="Control de Acceso", id=(request.url.hostname if request else "localhost"))
     server = Fido2Server(rp)
 
     # Build registered keys list
@@ -99,7 +109,8 @@ def webauthn_assertion_options(payload: dict = Body(...), db: Session = Depends(
     options, state = server.authenticate_begin(registered)
 
     # persist state as CBOR in DB
-    state_bytes = cbor.encode(state)
+    # Persist internal state using pickle (handles None and enums)
+    state_bytes = pickle.dumps(state)
     # upsert challenge/state
     existing = db.query(WebAuthnChallenge).filter_by(username=username).first()
     if existing:
@@ -110,14 +121,24 @@ def webauthn_assertion_options(payload: dict = Body(...), db: Session = Depends(
     db.commit()
 
     # Convert options.challenge to base64url for frontend
-    options_json = dict(options)
-    options_json["challenge"] = _base64url(options["challenge"])
-    if "allowCredentials" in options_json:
-        for cred in options_json["allowCredentials"]:
-            if isinstance(cred.get("id"), (bytes, bytearray)):
-                cred["id"] = _base64url(cred["id"])
+    # `options` is a CredentialRequestOptions object with a `public_key` field
+    pk = options.public_key
 
-    return WebAuthnAssertionOptions(**options_json)
+    resp: dict = {
+        "challenge": _base64url(pk.challenge),
+        "timeout": pk.timeout,
+        "rpId": pk.rp_id,
+        "userVerification": None if pk.user_verification is None else str(pk.user_verification),
+    }
+
+    if pk.allow_credentials:
+        allow_creds = []
+        for c in pk.allow_credentials:
+            # c.id is bytes
+            allow_creds.append({"type": "public-key", "id": _base64url(c.id)})
+        resp["allowCredentials"] = allow_creds
+
+    return WebAuthnAssertionOptions(**resp)
 
 
 @router.post("/webauthn/assertion/verify", response_model=schemas.Token)
@@ -139,9 +160,12 @@ def webauthn_assertion_verify(body: WebAuthnAssertionVerifyIn, db: Session = Dep
     chal = db.query(WebAuthnChallenge).filter_by(username=db.query(User).filter(User.id == cred.user_id).first().username).first()
     if not chal:
         raise AppException(status_code=400, detail="No challenge/state for user")
-    state = cbor.decode(chal.state)
+    try:
+        state = pickle.loads(chal.state)
+    except Exception:
+        raise AppException(status_code=400, detail="Invalid stored state")
 
-    rp = PublicKeyCredentialRpEntity(request.url.hostname if request else "localhost", "Control de Acceso")
+    rp = PublicKeyCredentialRpEntity(name="Control de Acceso", id=(request.url.hostname if request else "localhost"))
     server = Fido2Server(rp)
 
     # Extract client response bytes
@@ -217,7 +241,7 @@ def webauthn_register_options(payload: dict = Body(...), db: Session = Depends(g
     user_entity = PublicKeyCredentialUserEntity(id=str(user.id).encode("utf-8"), name=user.username, display_name=user.username)
     options, state = server.register_begin(user_entity, credentials=[])
 
-    state_bytes = cbor.encode(state)
+    state_bytes = pickle.dumps(state)
     existing = db.query(WebAuthnChallenge).filter_by(username=username).first()
     if existing:
         existing.state = state_bytes
@@ -225,18 +249,25 @@ def webauthn_register_options(payload: dict = Body(...), db: Session = Depends(g
         db.add(WebAuthnChallenge(username=username, state=state_bytes))
     db.commit()
 
-    options_json = dict(options)
-    options_json["challenge"] = _base64url(options["challenge"])
-    if "user" in options_json and isinstance(options_json["user"].get("id"), (bytes, bytearray)):
-        options_json["user"]["id"] = _base64url(options_json["user"]["id"])
+    # options is a PublicKeyCredentialCreationOptions wrapper with `public_key`
+    pk = options.public_key
 
-    # convert excludeCredentials ids
-    if "excludeCredentials" in options_json:
-        for c in options_json["excludeCredentials"]:
-            if isinstance(c.get("id"), (bytes, bytearray)):
-                c["id"] = _base64url(c["id"])
+    resp: dict = {
+        "challenge": _base64url(pk.challenge),
+        "rp": {"name": pk.rp.name, "id": pk.rp.id},
+        "user": {"id": _base64url(pk.user.id), "name": pk.user.name, "displayName": pk.user.display_name},
+        "pubKeyCredParams": pk.pub_key_cred_params,
+        "timeout": pk.timeout,
+        "attestation": getattr(pk, "attestation", None),
+    }
 
-    return WebAuthnRegisterOptions(**options_json)
+    if getattr(pk, "exclude_credentials", None):
+        excl = []
+        for c in pk.exclude_credentials:
+            excl.append({"type": "public-key", "id": _base64url(c.id)})
+        resp["excludeCredentials"] = excl
+
+    return WebAuthnRegisterOptions(**resp)
 
 
 @router.post("/webauthn/register/verify", response_model=schemas.Token)
@@ -251,7 +282,10 @@ def webauthn_register_verify(body: WebAuthnRegisterVerifyIn, db: Session = Depen
     chal = db.query(WebAuthnChallenge).filter_by(username=username).first()
     if not chal:
         raise AppException(status_code=400, detail="No challenge for user")
-    state = cbor.decode(chal.state)
+    try:
+        state = pickle.loads(chal.state)
+    except Exception:
+        raise AppException(status_code=400, detail="Invalid stored state")
 
     rp = PublicKeyCredentialRpEntity(request.url.hostname if request else "localhost", "Control de Acceso")
     server = Fido2Server(rp)
