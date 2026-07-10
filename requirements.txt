@@ -10,3 +10,4 @@ python-jose[cryptography]==3.3.0
 bcrypt==4.2.1
 python-multipart==0.0.20
 cloudinary==1.42.2
+fido2==1.10.0

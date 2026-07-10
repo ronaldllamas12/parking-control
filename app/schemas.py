@@ -91,3 +91,32 @@ class UserOut(BaseModel):
     role: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class WebAuthnAssertionOptions(BaseModel):
+    challenge: str
+    allowCredentials: list[dict] | None = None
+    timeout: int | None = 60000
+    rpId: str | None = None
+
+
+class WebAuthnAssertionVerifyIn(BaseModel):
+    id: str
+    rawId: str
+    type: str
+    response: dict
+
+
+class WebAuthnRegisterOptions(BaseModel):
+    challenge: str
+    user: dict
+    pubKeyCredParams: list[dict] | None = None
+    timeout: int | None = 60000
+
+
+class WebAuthnRegisterVerifyIn(BaseModel):
+    id: str
+    rawId: str
+    type: str
+    response: dict
+    username: str | None = None

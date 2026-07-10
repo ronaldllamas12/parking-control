@@ -23,8 +23,11 @@ export default function Login() {
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema) })
+
+  const { webauthnLogin } = useAuth()
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -157,6 +160,33 @@ export default function Login() {
               ) : (
                 'Iniciar sesión'
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                setApiError(null)
+                const username = getValues('username')
+                if (!username) {
+                  setApiError('Ingresa el usuario para autenticar con huella')
+                  return
+                }
+
+                if (!('credentials' in navigator) || !navigator.credentials) {
+                  setApiError('Tu navegador no soporta autenticación por huella (WebAuthn)')
+                  return
+                }
+
+                try {
+                  await webauthnLogin(username)
+                } catch (err) {
+                  const errMsg = err instanceof Error ? err.message : String(err)
+                  setApiError(`Autenticación con huella falló: ${errMsg}`)
+                }
+              }}
+              className="mt-3 w-full inline-flex items-center justify-center gap-2 border border-white/10 bg-white/5 text-white py-2 rounded-xl"
+            >
+              Iniciar con huella
             </button>
           </form>
         </div>

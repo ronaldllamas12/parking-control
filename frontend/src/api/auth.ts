@@ -15,3 +15,14 @@ export async function login(username: string, password: string): Promise<TokenRe
   })
   return data
 }
+
+// WebAuthn assertion (login) helpers
+export async function getWebAuthnAssertionOptions(username: string) {
+  const { data } = await apiClient.post('/api/v1/auth/webauthn/assertion/options', { username })
+  return data
+}
+
+export async function verifyWebAuthnAssertion(assertion: any): Promise<TokenResponse> {
+  const { data } = await apiClient.post<TokenResponse>('/api/v1/auth/webauthn/assertion/verify', assertion)
+  return data
+}
