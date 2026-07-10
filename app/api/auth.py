@@ -138,7 +138,8 @@ def webauthn_assertion_options(payload: dict = Body(...), db: Session = Depends(
             # c.id is bytes
             allow_creds.append({"type": "public-key", "id": _base64url(c.id)})
         resp["allowCredentials"] = allow_creds
-
+    print("rp_id: ",RP_ID)
+    print(resp)
     return WebAuthnAssertionOptions(**resp)
 
 
@@ -220,7 +221,8 @@ def webauthn_assertion_verify(body: WebAuthnAssertionVerifyIn, db: Session = Dep
         db.commit()
     except Exception:
         db.rollback()
-
+    print("rp_id: ",RP_ID)
+    print(resp)
     return schemas.Token(access_token=access_token)
 
 
@@ -269,7 +271,8 @@ def webauthn_register_options(payload: dict = Body(...), db: Session = Depends(g
         for c in pk.exclude_credentials:
             excl.append({"type": "public-key", "id": _base64url(c.id)})
         resp["excludeCredentials"] = excl
-
+    print("rp_id: ",RP_ID)
+    print(resp)
     return WebAuthnRegisterOptions(**resp)
 
 
