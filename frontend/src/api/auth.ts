@@ -26,3 +26,14 @@ export async function verifyWebAuthnAssertion(assertion: any): Promise<TokenResp
   const { data } = await apiClient.post<TokenResponse>('/api/v1/auth/webauthn/assertion/verify', assertion)
   return data
 }
+
+// WebAuthn registration helpers
+export async function getWebAuthnRegisterOptions(username: string) {
+  const { data } = await apiClient.post('/api/v1/auth/webauthn/register/options', { username })
+  return data
+}
+
+export async function verifyWebAuthnRegister(payload: any): Promise<TokenResponse> {
+  const { data } = await apiClient.post<TokenResponse>('/api/v1/auth/webauthn/register/verify', payload)
+  return data
+}

@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
 import Login from './pages/Login'
+import RegisterFingerprint from './pages/RegisterFingerprint'
 import ListarPropietarios from './pages/admin/ListarPropietarios'
 import RegistrarPropietario from './pages/admin/RegistrarPropietario'
 import VerificarAcceso from './pages/vigilante/VerificarAcceso'
@@ -42,6 +43,18 @@ export default function App() {
               element={
                 <Layout>
                   <VerificarAcceso />
+                </Layout>
+              }
+            />
+          </Route>
+
+          {/* Shared authenticated routes */}
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'vigilante']} />}>
+            <Route
+              path="/perfil/huella"
+              element={
+                <Layout>
+                  <RegisterFingerprint />
                 </Layout>
               }
             />

@@ -109,9 +109,12 @@ class WebAuthnAssertionVerifyIn(BaseModel):
 
 class WebAuthnRegisterOptions(BaseModel):
     challenge: str
+    rp: dict | None = None
     user: dict
-    pubKeyCredParams: list[dict] | None = None
+    pubKeyCredParams: list | None = None
     timeout: int | None = 60000
+    attestation: str | None = None
+    excludeCredentials: list[dict] | None = None
 
 
 class WebAuthnRegisterVerifyIn(BaseModel):

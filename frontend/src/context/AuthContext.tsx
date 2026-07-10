@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { login as apiLogin, getWebAuthnAssertionOptions, verifyWebAuthnAssertion } from '../api/auth'
+import { login as apiLogin, getWebAuthnAssertionOptions, getWebAuthnRegisterOptions, verifyWebAuthnAssertion, verifyWebAuthnRegister } from '../api/auth'
 import type { AuthUser } from '../types'
 import { base64UrlToBuffer, bufferToBase64Url } from '../utils/webauthn'
 
@@ -23,6 +23,7 @@ interface AuthContextValue {
   isAuthenticated: boolean
   login: (username: string, password: string) => Promise<void>
   webauthnLogin: (username: string) => Promise<void>
+  webauthnRegister: (username: string) => Promise<void>
   logout: () => void
 }
 
@@ -101,6 +102,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser({ username: payload.sub, role: payload.role as AuthUser['role'] })
   }, [])
 
+  const webauthnRegister = useCallback(async (username: string) => {
+    // Get registration options from server
+    const options = await getWebAuthnRegisterOptions(username)
+
+    const publicKey: PublicKeyCredentialCreationOptions = {
+      ...options,
+      challenge: base64UrlToBuffer(options.challenge),
+      user: {
+        ...options.user,
+        id: base64UrlToBuffer(options.user.id),
+      },
+      pubKeyCredParams: options.pubKeyCredParams ?? [
+        { alg: -7, type: 'public-key' },
+        { alg: -257, type: 'public-key' },
+      ],
+      excludeCredentials: (options.excludeCredentials || []).map((c: any) => ({
+        ...c,
+        id: base64UrlToBuffer(c.id),
+      })),
+    }
+
+    const cred = (await navigator.credentials.create({ publicKey })) as PublicKeyCredential | null
+    if (!cred) throw new Error('Registro cancelado')
+
+    const attResp = cred.response as AuthenticatorAttestationResponse
+
+    await verifyWebAuthnRegister({
+      username,
+      id: cred.id,
+      rawId: bufferToBase64Url(cred.rawId),
+      type: cred.type,
+      response: {
+        clientDataJSON: bufferToBase64Url(attResp.clientDataJSON),
+        attestationObject: bufferToBase64Url(attResp.attestationObject),
+      },
+    })
+  }, [])
+
   // ── Auto-logout when token expires ────────────────────────────────────────
   useEffect(() => {
     const token = sessionStorage.getItem('access_token')
@@ -120,8 +159,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, logout])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isAuthenticated: !!user, login, webauthnLogin, logout }),
-    [user, login, logout],
+    () => ({ user, isAuthenticated: !!user, login, webauthnLogin, webauthnRegister, logout }),
+    [user, login, webauthnLogin, webauthnRegister, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
