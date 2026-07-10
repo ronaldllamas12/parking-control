@@ -93,8 +93,9 @@ def webauthn_assertion_options(payload: dict = Body(...), db: Session = Depends(
 
     if Fido2Server is None:
         raise AppException(status_code=500, detail="WebAuthn server library not installed")
-
-    rp = PublicKeyCredentialRpEntity(name="Control de Acceso", id=(request.url.hostname if request else "localhost"))
+    
+    RP_ID = os.getenv("WEBAUTHN_RP_ID","localhost")
+    rp = PublicKeyCredentialRpEntity(name="Control de Acceso", id=RP_ID)
     server = Fido2Server(rp)
 
     # Build registered keys list
