@@ -1,12 +1,12 @@
 import { jwtDecode } from 'jwt-decode'
 import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
 } from 'react'
 import { login as apiLogin, getWebAuthnAssertionOptions, verifyWebAuthnAssertion } from '../api/auth'
 import type { AuthUser } from '../types'
