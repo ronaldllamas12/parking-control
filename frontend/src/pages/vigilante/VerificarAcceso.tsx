@@ -1,17 +1,17 @@
 ﻿import type { AxiosError } from 'axios'
 import {
-  Building2,
-  Camera,
-  CameraOff,
-  Clock,
-  CreditCard,
-  Home,
-  Phone,
-  QrCode,
-  RotateCcw,
-  Search,
-  ShieldCheck,
-  ShieldX,
+    Building2,
+    Camera,
+    CameraOff,
+    Clock,
+    CreditCard,
+    Home,
+    Phone,
+    QrCode,
+    RotateCcw,
+    Search,
+    ShieldCheck,
+    ShieldX,
 } from 'lucide-react'
 import QrScanner from 'qr-scanner'
 import { useEffect, useRef, useState } from 'react'
@@ -112,7 +112,7 @@ export default function VerificarAcceso() {
       if (axiosErr.response?.status === 404) {
         setDenied('ID no encontrado en el sistema')
       } else {
-        setDenied(axiosErr.response?.data?.detail ?? 'Error de conexiÃ³n')
+        setDenied(axiosErr.response?.data?.detail ?? 'Error de conexión')
       }
     } finally {
       setLoading(false)
@@ -135,7 +135,7 @@ export default function VerificarAcceso() {
     try {
       const hasCamera = await QrScanner.hasCamera()
       if (!hasCamera) {
-        setCameraError('No se detectÃ³ cÃ¡mara en este dispositivo.')
+        setCameraError('No se detectó cámara en este dispositivo.')
         setCameraLoading(false)
         return
       }
@@ -167,7 +167,7 @@ export default function VerificarAcceso() {
       const errorMessage = err instanceof Error ? err.message : String(err)
       console.error('Error al iniciar QrScanner:', err)
       setCameraError(
-        `No se pudo iniciar la cÃ¡mara. ${errorMessage}. Revisa permisos y prueba nuevamente.`,
+        `No se pudo iniciar la cámara. ${errorMessage}. Revisa permisos y prueba nuevamente.`,
       )
       stopScanner()
     } finally {
@@ -186,7 +186,7 @@ export default function VerificarAcceso() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
       console.error('toggleScanner error:', err)
-      setCameraError(`Error al activar la cÃ¡mara: ${errorMessage}`)
+      setCameraError(`Error al activar la cámara: ${errorMessage}`)
       setCameraLoading(false)
     }
   }
@@ -227,7 +227,7 @@ export default function VerificarAcceso() {
                 <div className="w-8 h-8 rounded-xl bg-brand-100 flex items-center justify-center">
                   <QrCode className="w-4 h-4 text-brand-600" />
                 </div>
-                <span className="text-sm font-bold text-slate-800">EscÃ¡ner QR</span>
+                <span className="text-sm font-bold text-slate-800">Escáner QR</span>
               </div>
               <button
                 type="button"
@@ -236,11 +236,11 @@ export default function VerificarAcceso() {
                 className={cameraActive ? 'btn-cancel px-4 py-2 text-xs' : 'btn-primary px-4 py-2 text-xs'}
               >
                 {cameraLoading ? (
-                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Iniciandoâ€¦</>
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Iniciando…</>
                 ) : cameraActive ? (
-                  <><CameraOff className="w-4 h-4" />Detener cÃ¡mara</>
+                  <><CameraOff className="w-4 h-4" />Detener cámara</>
                 ) : (
-                  <><Camera className="w-4 h-4" />Activar cÃ¡mara</>
+                  <><Camera className="w-4 h-4" />Activar cámara</>
                 )}
               </button>
             </div>
@@ -262,13 +262,13 @@ export default function VerificarAcceso() {
                     <div className="w-14 h-14 rounded-3xl bg-white/10 border border-white/15 flex items-center justify-center mb-1">
                       <Camera className="w-7 h-7 text-white/35" />
                     </div>
-                    <p className="text-sm font-semibold text-white/55">CÃ¡mara inactiva</p>
-                    <p className="text-xs text-white/25 max-w-xs">Toca el botÃ³n de arriba para iniciar el escaneo.</p>
+                    <p className="text-sm font-semibold text-white/55">Cámara inactiva</p>
+                    <p className="text-xs text-white/25 max-w-xs">Toca el botón de arriba para iniciar el escaneo.</p>
                   </div>
                 )}
               </div>
               <div className="px-3 py-2 text-center text-xs text-white/35 bg-slate-950/80">
-                {cameraActive ? 'Apunta al cÃ³digo QR del propietario' : 'La cÃ¡mara se mostrarÃ¡ aquÃ­.'}
+                {cameraActive ? 'Apunta al código QR del propietario' : 'La cámara se mostrará aquí.'}
               </div>
             </div>
           </div>
@@ -372,7 +372,7 @@ export default function VerificarAcceso() {
         <aside className="card-lg p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div>
-              <h2 className="text-sm font-bold text-slate-900">Ãšltimos escaneos</h2>
+              <h2 className="text-sm font-bold text-slate-900">Últimos escaneos</h2>
               <p className="text-xs text-slate-500">10 verificaciones recientes</p>
             </div>
             <button
@@ -388,7 +388,7 @@ export default function VerificarAcceso() {
           {historialError && <p className="field-error mb-3">{historialError}</p>}
 
           {!historialError && historial.length === 0 && (
-            <p className="text-sm text-slate-400 py-6 text-center">AÃºn no hay escaneos.</p>
+            <p className="text-sm text-slate-400 py-6 text-center">Aún no hay escaneos.</p>
           )}
 
           {historial.length > 0 && (
