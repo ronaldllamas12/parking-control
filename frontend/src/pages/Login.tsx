@@ -65,7 +65,7 @@ export default function Login() {
       style={{ backgroundImage: "url('https://res.cloudinary.com/dms34zmay/image/upload/v1777934516/jh8oon16lkqfx4ppq5pb.jpg')" }}
     >
       {/* Overlay */}
-      <div aria-hidden className="absolute inset-0 bg-gradient-dark/70 backdrop-blur-[2px]" />
+      <div aria-hidden className="absolute inset-0 bg-gradient-dark/70 backdrop-blur-[4px]" />
 
       {/* Ambient glows */}
       <div aria-hidden className="pointer-events-none absolute -top-40 -right-40 w-96 h-96 bg-brand-500/20 rounded-full blur-[100px]" />
