@@ -87,6 +87,11 @@ class HistorialAccesoOut(BaseModel):
     verificado_en: datetime
 
 
+class BulkImportResponse(BaseModel):
+    creados: list[PropietarioOut]
+    errores: list[str]
+
+
 class UserOut(BaseModel):
     username: str
     role: str

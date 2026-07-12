@@ -1,4 +1,4 @@
-import type { PropietarioOut, PropietarioUpdate } from '../types'
+import type { BulkImportResult, PropietarioOut, PropietarioUpdate } from '../types'
 import apiClient from './axios'
 
 /**
@@ -56,5 +56,13 @@ export async function eliminarPropietario(uid: string): Promise<void> {
 /** PATCH /api/v1/propietarios/{uid}/toggle-acceso */
 export async function toggleAccesoPropietario(uid: string): Promise<PropietarioOut> {
   const { data } = await apiClient.patch<PropietarioOut>(`/api/v1/propietarios/${uid}/toggle-acceso`)
+  return data
+}
+
+/** POST /api/v1/propietarios/bulk */
+export async function registrarPropietariosBulk(
+  items: Array<{ nombre: string; numero_contacto: string; torre: string; apartamento: string }>,
+): Promise<BulkImportResult> {
+  const { data } = await apiClient.post<BulkImportResult>('/api/v1/propietarios/bulk', items)
   return data
 }

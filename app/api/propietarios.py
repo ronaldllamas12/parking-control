@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from app import crud, schemas
+from app import crud, models, schemas
 from app.database import get_db
 from app.exceptions import AppException
 from app.security import role_required
@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/propietarios", tags=["propietarios"])
 logger = logging.getLogger(__name__)
+
+_DEFAULT_BULK_FOTO = "https://placehold.co/200x200/2563eb/ffffff?text=P"
 
 
 @router.post("/", response_model=schemas.PropietarioOut)
@@ -183,4 +185,37 @@ def toggle_acceso_propietario(
     estado = "habilitado" if propietario.acceso_habilitado else "deshabilitado"
     logger.info("Acceso %s para propietario uid=%s", estado, uid)
     return propietario
+
+
+@router.post("/bulk", response_model=schemas.BulkImportResponse)
+def registrar_propietarios_bulk(
+    items: list[schemas.PropietarioCreate],
+    _: object = Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    if not items:
+        raise HTTPException(status_code=400, detail="No se enviaron registros")
+    if len(items) > 200:
+        raise HTTPException(status_code=400, detail="Máximo 200 registros por importación")
+
+    creados: list[models.Propietario] = []
+    errores: list[str] = []
+
+    for idx, item in enumerate(items, start=1):
+        try:
+            p = crud.create_propietario(db=db, payload=item, foto_url=_DEFAULT_BULK_FOTO)
+            creados.append(p)
+        except IntegrityError:
+            db.rollback()
+            errores.append(
+                f"Fila {idx} ({item.nombre}): Torre {item.torre} Apto {item.apartamento} ya existe"
+            )
+        except Exception as exc:
+            db.rollback()
+            errores.append(f"Fila {idx} ({item.nombre}): Error — {str(exc)[:120]}")
+
+    logger.info(
+        "Importación masiva: %d creados, %d errores", len(creados), len(errores)
+    )
+    return schemas.BulkImportResponse(creados=creados, errores=errores)
 

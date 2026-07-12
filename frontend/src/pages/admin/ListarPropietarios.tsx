@@ -3,31 +3,287 @@ import {
     Building2,
     Download,
     Edit2,
+    FileSpreadsheet,
+    Filter,
     Home,
     Phone,
     Plus,
     RefreshCw,
     Save,
+    Search,
     ShieldCheck,
     ShieldX,
     Trash2,
+    Upload,
+    Users,
     X,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { read as xlsxRead, utils as xlsxUtils, writeFile as xlsxWriteFile } from 'xlsx'
 import {
     actualizarPropietario,
     eliminarPropietario,
     listarPropietarios,
+    registrarPropietariosBulk,
     toggleAccesoPropietario,
 } from '../../api/propietarios'
-import type { ApiErrorBody, PropietarioOut } from '../../types'
+import type { ApiErrorBody, BulkImportResult, PropietarioOut } from '../../types'
 import { createOwnerQrDataUrl, qrFileName } from '../../utils/qrDownload'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function avatarSvg(letter: string): string {
   const encoded = encodeURIComponent(letter.toUpperCase())
   return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="12" fill="%232563eb"/><text x="40" y="52" font-size="34" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold">${encoded}</text></svg>`
+}
+
+// ── BulkImportModal ───────────────────────────────────────────────────────────
+interface BulkImportModalProps {
+  onClose: () => void
+  onImported: (newItems: PropietarioOut[]) => void
+}
+
+interface ParsedRow {
+  nombre: string
+  numero_contacto: string
+  torre: string
+  apartamento: string
+}
+
+function BulkImportModal({ onClose, onImported }: BulkImportModalProps) {
+  const [rows, setRows] = useState<ParsedRow[]>([])
+  const [fileName, setFileName] = useState<string | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<BulkImportResult | null>(null)
+  const [parseError, setParseError] = useState<string | null>(null)
+  const [generalError, setGeneralError] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const downloadTemplate = () => {
+    const wb = xlsxUtils.book_new()
+    const ws = xlsxUtils.aoa_to_sheet([
+      ['nombre', 'numero_contacto', 'torre', 'apartamento'],
+      ['JUAN PEREZ GARCIA', '3001234567', '1', '101'],
+      ['MARIA LOPEZ TORRES', '3109876543', '2', '204'],
+    ])
+    ws['!cols'] = [{ wch: 26 }, { wch: 18 }, { wch: 8 }, { wch: 12 }]
+    xlsxUtils.book_append_sheet(wb, ws, 'Propietarios')
+    xlsxWriteFile(wb, 'plantilla_propietarios.xlsx')
+  }
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFileName(file.name)
+    setParseError(null)
+    setImportResult(null)
+    setGeneralError(null)
+    setRows([])
+
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = new Uint8Array(ev.target!.result as ArrayBuffer)
+        const wb = xlsxRead(data, { type: 'array' })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const rawRows = xlsxUtils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
+
+        const get = (row: Record<string, unknown>, key: string): string => {
+          const found = Object.entries(row).find(
+            ([k]) => k.toLowerCase().replace(/\s+/g, '_') === key,
+          )
+          return String(found?.[1] ?? '').trim()
+        }
+
+        const parsed: ParsedRow[] = rawRows
+          .map((row) => ({
+            nombre: get(row, 'nombre').toUpperCase(),
+            numero_contacto: get(row, 'numero_contacto'),
+            torre: get(row, 'torre'),
+            apartamento: get(row, 'apartamento').toUpperCase(),
+          }))
+          .filter((r) => r.nombre || r.torre || r.apartamento)
+
+        if (parsed.length === 0) {
+          setParseError('El archivo no contiene datos. Asegúrate de usar la plantilla correcta.')
+          return
+        }
+        setRows(parsed)
+      } catch {
+        setParseError('No se pudo leer el archivo. Verifica que sea un Excel válido (.xlsx).')
+      }
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
+  const handleImport = async () => {
+    if (!rows.length) return
+    setImporting(true)
+    setGeneralError(null)
+    try {
+      const result = await registrarPropietariosBulk(rows)
+      setImportResult(result)
+      if (result.creados.length > 0) onImported(result.creados)
+    } catch (err) {
+      const axiosErr = err as AxiosError<ApiErrorBody>
+      setGeneralError(axiosErr.response?.data?.detail ?? 'Error al importar')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const isImported = importResult !== null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md">
+      <div className="card-lg w-full max-w-2xl animate-scale-in overflow-hidden max-h-[90vh] flex flex-col">
+
+        {/* Header */}
+        <div className="bg-gradient-premium px-5 py-4 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <FileSpreadsheet className="w-5 h-5 text-white" />
+            <h2 className="text-white font-bold text-base">Registro Masivo por Excel</h2>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-5 space-y-4">
+
+          {/* Step 1: Download template */}
+          <div className="flex items-center gap-4 p-4 bg-surface-50 rounded-2xl border border-surface-200">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+              <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-slate-800">Paso 1 — Descargar plantilla</p>
+              <p className="text-xs text-slate-500 mt-0.5">Columnas: nombre · numero_contacto · torre · apartamento</p>
+            </div>
+            <button type="button" onClick={downloadTemplate} className="btn-secondary text-xs px-3 py-2 flex-shrink-0">
+              <Download className="w-3.5 h-3.5" />Plantilla
+            </button>
+          </div>
+
+          {/* Step 2: Upload file */}
+          <div className="flex items-center gap-4 p-4 bg-surface-50 rounded-2xl border border-surface-200">
+            <div className="w-10 h-10 rounded-2xl bg-brand-100 flex items-center justify-center flex-shrink-0">
+              <Upload className="w-5 h-5 text-brand-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-slate-800">Paso 2 — Subir archivo</p>
+              <p className="text-xs text-slate-500 mt-0.5 truncate">{fileName ?? 'Ningún archivo seleccionado'}</p>
+            </div>
+            <button type="button" onClick={() => fileRef.current?.click()} className="btn-primary text-xs px-3 py-2 flex-shrink-0">
+              <Upload className="w-3.5 h-3.5" />Seleccionar
+            </button>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} />
+          </div>
+
+          {parseError && <p className="field-error">{parseError}</p>}
+
+          {/* Preview table */}
+          {rows.length > 0 && !isImported && (
+            <div>
+              <p className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5" />
+                Vista previa — {rows.length} registro{rows.length !== 1 ? 's' : ''} encontrado{rows.length !== 1 ? 's' : ''}
+              </p>
+              <div className="rounded-2xl border border-surface-200 overflow-hidden">
+                <div className="overflow-x-auto max-h-56">
+                  <table className="w-full text-xs">
+                    <thead className="bg-surface-100 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-slate-500">#</th>
+                        <th className="px-3 py-2 text-left font-semibold text-slate-600">Nombre</th>
+                        <th className="px-3 py-2 text-left font-semibold text-slate-600">Contacto</th>
+                        <th className="px-3 py-2 text-left font-semibold text-slate-600">Torre</th>
+                        <th className="px-3 py-2 text-left font-semibold text-slate-600">Apto</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-surface-100">
+                      {rows.map((row, i) => (
+                        <tr key={i} className="bg-white hover:bg-surface-50 transition-colors">
+                          <td className="px-3 py-2 text-slate-400">{i + 1}</td>
+                          <td className="px-3 py-2 text-slate-800 font-medium max-w-[160px] truncate">
+                            {row.nombre || <span className="text-rose-400 italic">vacío</span>}
+                          </td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {row.numero_contacto || <span className="text-rose-400 italic">vacío</span>}
+                          </td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {row.torre || <span className="text-rose-400 italic">—</span>}
+                          </td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {row.apartamento || <span className="text-rose-400 italic">—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Import results */}
+          {isImported && (
+            <div className="space-y-3">
+              <div className={`rounded-2xl p-4 flex items-start gap-3 ${importResult.creados.length > 0 ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${importResult.creados.length > 0 ? 'bg-emerald-100' : 'bg-rose-100'}`}>
+                  {importResult.creados.length > 0
+                    ? <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                    : <ShieldX className="w-5 h-5 text-rose-600" />}
+                </div>
+                <div>
+                  <p className={`font-bold text-sm ${importResult.creados.length > 0 ? 'text-emerald-800' : 'text-rose-800'}`}>
+                    {importResult.creados.length} de {rows.length} registros importados correctamente
+                  </p>
+                  {importResult.errores.length > 0 && (
+                    <p className="text-xs text-rose-600 mt-0.5">{importResult.errores.length} registro{importResult.errores.length !== 1 ? 's' : ''} con errores</p>
+                  )}
+                </div>
+              </div>
+              {importResult.errores.length > 0 && (
+                <div className="rounded-2xl border border-rose-200 overflow-hidden">
+                  <div className="bg-rose-50 px-3 py-2">
+                    <p className="text-xs font-semibold text-rose-700">Detalle de errores</p>
+                  </div>
+                  <ul className="divide-y divide-rose-100 max-h-36 overflow-y-auto">
+                    {importResult.errores.map((e, i) => (
+                      <li key={i} className="px-3 py-1.5 text-xs text-rose-700 bg-white">{e}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {generalError && <p className="field-error">{generalError}</p>}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-5 py-4 border-t border-surface-200 flex-shrink-0">
+          <button type="button" onClick={onClose} className="btn-cancel flex-1">
+            {isImported ? 'Cerrar' : 'Cancelar'}
+          </button>
+          {!isImported && (
+            <button
+              type="button"
+              onClick={() => { void handleImport() }}
+              disabled={rows.length === 0 || importing}
+              className="btn-primary flex-1"
+            >
+              {importing
+                ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                : <Upload className="w-4 h-4" />}
+              {importing ? 'Importando…' : `Importar${rows.length > 0 ? ` ${rows.length} registros` : ''}`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ── EditModal ─────────────────────────────────────────────────────────────────
@@ -212,6 +468,30 @@ export default function ListarPropietarios() {
   const [deleting, setDeleting] = useState<PropietarioOut | null>(null)
   const [downloadingQrUid, setDownloadingQrUid] = useState<string | null>(null)
   const [togglingUid, setTogglingUid] = useState<string | null>(null)
+  const [showBulkImport, setShowBulkImport] = useState(false)
+  const [searchNombre, setSearchNombre] = useState('')
+  const [searchTorre, setSearchTorre] = useState('')
+  const [searchApto, setSearchApto] = useState('')
+
+  const filtered = useMemo(() => {
+    const nombre = searchNombre.toLowerCase().trim()
+    const torre = searchTorre.trim()
+    const apto = searchApto.trim().toUpperCase()
+    return propietarios.filter((p) => {
+      const matchNombre = !nombre || p.nombre.toLowerCase().includes(nombre)
+      const matchTorre = !torre || p.torre === torre
+      const matchApto = !apto || p.apartamento.includes(apto)
+      return matchNombre && matchTorre && matchApto
+    })
+  }, [propietarios, searchNombre, searchTorre, searchApto])
+
+  const hasFilters = searchNombre || searchTorre || searchApto
+
+  const clearFilters = () => {
+    setSearchNombre('')
+    setSearchTorre('')
+    setSearchApto('')
+  }
   const location = useLocation()
   const isEditMode = new URLSearchParams(location.search).get('mode') === 'edit'
 
@@ -274,6 +554,10 @@ export default function ListarPropietarios() {
     }
   }
 
+  const handleBulkImported = (newItems: PropietarioOut[]) => {
+    setPropietarios((prev) => [...prev, ...newItems])
+  }
+
   return (
     <div className="animate-fade-in">
 
@@ -286,7 +570,11 @@ export default function ListarPropietarios() {
             </span>
             <h1 className="text-2xl font-extrabold tracking-tight">Propietarios</h1>
             <p className="mt-0.5 text-sm text-white/55">
-              {loading ? 'Cargando…' : `${propietarios.length} propietario${propietarios.length !== 1 ? 's' : ''} registrado${propietarios.length !== 1 ? 's' : ''}`}
+              {loading
+                ? 'Cargando…'
+                : hasFilters
+                  ? `${filtered.length} de ${propietarios.length} propietario${propietarios.length !== 1 ? 's' : ''}`
+                  : `${propietarios.length} propietario${propietarios.length !== 1 ? 's' : ''} registrado${propietarios.length !== 1 ? 's' : ''}`}
             </p>
             {isEditMode && (
               <span className="mt-2 inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-xs text-emerald-300 font-semibold">
@@ -298,10 +586,55 @@ export default function ListarPropietarios() {
             <button onClick={load} disabled={loading} className="btn-icon w-10 h-10" aria-label="Recargar lista">
               <RefreshCw className={`w-4 h-4 text-white ${loading ? 'animate-spin' : ''}`} />
             </button>
+            <button
+              onClick={() => setShowBulkImport(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-white/25 bg-white/10 hover:bg-white/20 px-4 py-2.5 text-xs font-semibold text-white transition-all"
+            >
+              <FileSpreadsheet className="w-4 h-4" />Importar Excel
+            </button>
             <Link to="/admin/registrar" className="btn-primary px-4 py-2.5 text-xs">
               <Plus className="w-4 h-4" />Registrar
             </Link>
           </div>
+        </div>
+      </div>
+
+      {/* Search / Filters */}
+      <div className="card p-3 mb-4 flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <input
+            value={searchNombre}
+            onChange={(e) => setSearchNombre(e.target.value)}
+            placeholder="Buscar por nombre…"
+            className="field pl-9 text-sm py-2.5"
+          />
+        </div>
+        <div className="flex gap-2">
+          <div className="relative">
+            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            <input
+              value={searchTorre}
+              onChange={(e) => setSearchTorre(e.target.value.replace(/\D/g, ''))}
+              placeholder="Torre"
+              className="field pl-8 text-sm py-2.5 w-24"
+              inputMode="numeric"
+            />
+          </div>
+          <div className="relative">
+            <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            <input
+              value={searchApto}
+              onChange={(e) => setSearchApto(e.target.value.toUpperCase())}
+              placeholder="Apto"
+              className="field pl-8 text-sm py-2.5 w-28 uppercase"
+            />
+          </div>
+          {hasFilters && (
+            <button onClick={clearFilters} className="btn-cancel px-3 py-2 text-xs flex items-center gap-1.5" title="Limpiar filtros">
+              <Filter className="w-3.5 h-3.5" />Limpiar
+            </button>
+          )}
         </div>
       </div>
 
@@ -318,10 +651,22 @@ export default function ListarPropietarios() {
         </div>
       )}
 
+      {/* No filter results */}
+      {!loading && !error && propietarios.length > 0 && filtered.length === 0 && (
+        <div className="card-lg p-10 text-center">
+          <Search className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-slate-500 text-sm font-semibold">Sin resultados</p>
+          <p className="text-slate-400 text-xs mt-1">Ningún propietario coincide con los filtros aplicados.</p>
+          <button onClick={clearFilters} className="btn-secondary mt-4 text-xs px-4">
+            <Filter className="w-3.5 h-3.5" />Limpiar filtros
+          </button>
+        </div>
+      )}
+
       {/* Grid */}
-      {propietarios.length > 0 && (
+      {filtered.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2">
-          {propietarios.map((p) => (
+          {filtered.map((p) => (
             <div
               key={p.uid}
               className={`card p-4 flex items-center gap-3 hover:-translate-y-0.5 hover:shadow-card-lg transition-all duration-200 ${!p.acceso_habilitado ? 'opacity-75 border-rose-200' : ''}`}
@@ -406,6 +751,9 @@ export default function ListarPropietarios() {
       )}
       {deleting && (
         <DeleteConfirm item={deleting} onClose={() => setDeleting(null)} onDeleted={handleDeleted} />
+      )}
+      {showBulkImport && (
+        <BulkImportModal onClose={() => setShowBulkImport(false)} onImported={handleBulkImported} />
       )}
     </div>
   )

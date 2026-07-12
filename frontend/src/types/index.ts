@@ -48,6 +48,12 @@ export interface HistorialAccesoOut {
   verificado_en: string
 }
 
+// ── Bulk import ─────────────────────────────────────────────────────────────
+export interface BulkImportResult {
+  creados: PropietarioOut[]
+  errores: string[]
+}
+
 // ── API errors ────────────────────────────────────────────────────────────────
 export interface ApiErrorBody {
   detail: string
