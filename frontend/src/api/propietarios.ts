@@ -1,4 +1,4 @@
-import type { BulkImportResult, PropietarioOut, PropietarioUpdate } from '../types'
+import type { BulkImportResult, HuellaTemplate, PropietarioOut, PropietarioUpdate } from '../types'
 import apiClient from './axios'
 
 /**
@@ -64,5 +64,23 @@ export async function registrarPropietariosBulk(
   items: Array<{ nombre: string; numero_contacto: string; torre: string; apartamento: string }>,
 ): Promise<BulkImportResult> {
   const { data } = await apiClient.post<BulkImportResult>('/api/v1/propietarios/bulk', items)
+  return data
+}
+
+/** POST /api/v1/propietarios/{uid}/huella */
+export async function registrarHuella(uid: string, template_b64: string): Promise<PropietarioOut> {
+  const { data } = await apiClient.post<PropietarioOut>(`/api/v1/propietarios/${uid}/huella`, { template_b64 })
+  return data
+}
+
+/** DELETE /api/v1/propietarios/{uid}/huella */
+export async function eliminarHuella(uid: string): Promise<PropietarioOut> {
+  const { data } = await apiClient.delete<PropietarioOut>(`/api/v1/propietarios/${uid}/huella`)
+  return data
+}
+
+/** GET /api/v1/acceso/huellas (via acceso router, called from propietarios for admin use) */
+export async function listarHuellasAdmin(): Promise<HuellaTemplate[]> {
+  const { data } = await apiClient.get<HuellaTemplate[]>('/api/v1/acceso/huellas')
   return data
 }

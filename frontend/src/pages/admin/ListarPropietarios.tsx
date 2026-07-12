@@ -5,6 +5,7 @@ import {
     Edit2,
     FileSpreadsheet,
     Filter,
+    Fingerprint,
     Home,
     Phone,
     Plus,
@@ -23,18 +24,224 @@ import { Link, useLocation } from 'react-router-dom'
 import { read as xlsxRead, utils as xlsxUtils, writeFile as xlsxWriteFile } from 'xlsx'
 import {
     actualizarPropietario,
+    eliminarHuella,
     eliminarPropietario,
     listarPropietarios,
+    registrarHuella,
     registrarPropietariosBulk,
     toggleAccesoPropietario,
 } from '../../api/propietarios'
 import type { ApiErrorBody, BulkImportResult, PropietarioOut } from '../../types'
-import { createOwnerQrDataUrl, qrFileName } from '../../utils/qrDownload'
+import {
+    FingerprintError,
+    FingerprintReader,
+    isWebSerialSupported,
+} from '../../utils/fingerprintSerial'
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-function avatarSvg(letter: string): string {
-  const encoded = encodeURIComponent(letter.toUpperCase())
-  return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="12" fill="%232563eb"/><text x="40" y="52" font-size="34" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold">${encoded}</text></svg>`
+// ── RegisterFingerprintModal ──────────────────────────────────────────────────
+interface RegisterFingerprintModalProps {
+  item: PropietarioOut
+  onClose: () => void
+  onSaved: (updated: PropietarioOut) => void
+}
+
+type FpStep = 'idle' | 'connecting' | 'step1' | 'waiting' | 'step2' | 'saving' | 'done' | 'error'
+
+function RegisterFingerprintModal({ item, onClose, onSaved }: RegisterFingerprintModalProps) {
+  const [step, setStep] = useState<FpStep>('idle')
+  const [msg, setMsg] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const readerRef = useRef<FingerprintReader | null>(null)
+
+  const isSupported = isWebSerialSupported()
+
+  const cleanup = async () => {
+    try { await readerRef.current?.disconnect() } catch { /* ignore */ }
+    readerRef.current = null
+  }
+
+  const handleClose = async () => {
+    await cleanup()
+    onClose()
+  }
+
+  const startEnrollment = async () => {
+    setError(null)
+    setStep('connecting')
+    setMsg('Conectando al lector de huella...')
+
+    try {
+      const reader = new FingerprintReader()
+      readerRef.current = reader
+      await reader.connect()
+
+      setStep('step1')
+      setMsg('Coloca el dedo firmemente sobre el sensor...')
+      await reader.enrollStep1()
+
+      setStep('waiting')
+      setMsg('Retira el dedo y espera 2 segundos...')
+      await new Promise((r) => setTimeout(r, 2000))
+
+      setStep('step2')
+      setMsg('Coloca el mismo dedo nuevamente sobre el sensor...')
+      const templateBytes = await reader.enrollStep2()
+
+      setStep('saving')
+      setMsg('Guardando huella en el sistema...')
+
+      // Convert bytes to base64
+      const b64 = btoa(String.fromCharCode(...templateBytes))
+      const updated = await registrarHuella(item.uid, b64)
+
+      await cleanup()
+      setStep('done')
+      setMsg('¡Huella registrada exitosamente!')
+      onSaved(updated)
+    } catch (e) {
+      await cleanup()
+      setStep('error')
+      if (e instanceof FingerprintError) {
+        setError(e.message)
+      } else {
+        const axiosErr = e as AxiosError<ApiErrorBody>
+        setError(axiosErr.response?.data?.detail ?? 'Error desconocido al registrar la huella.')
+      }
+    }
+  }
+
+  const handleDeleteHuella = async () => {
+    setError(null)
+    setStep('saving')
+    setMsg('Eliminando huella...')
+    try {
+      const updated = await eliminarHuella(item.uid)
+      setStep('done')
+      setMsg('Huella eliminada correctamente.')
+      onSaved(updated)
+    } catch (e) {
+      const axiosErr = e as AxiosError<ApiErrorBody>
+      setStep('error')
+      setError(axiosErr.response?.data?.detail ?? 'Error al eliminar la huella.')
+    }
+  }
+
+  const stepIcon: Record<FpStep, string> = {
+    idle: '👆', connecting: '🔌', step1: '👆', waiting: '✋',
+    step2: '👆', saving: '💾', done: '✅', error: '❌',
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md">
+      <div className="card-lg w-full max-w-md animate-scale-in overflow-hidden">
+
+        {/* Header */}
+        <div className="bg-gradient-premium px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Fingerprint className="w-5 h-5 text-white" />
+            <h2 className="text-white font-bold text-base">Huella Digital</h2>
+          </div>
+          <button onClick={() => { void handleClose() }} className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Propietario info */}
+          <div className="flex items-center gap-3 p-3 bg-surface-50 rounded-2xl border border-surface-200">
+            <img
+              src={item.foto_url} alt={item.nombre}
+              className="w-12 h-12 rounded-xl object-cover border border-surface-200 flex-shrink-0"
+              onError={(e) => { ;(e.target as HTMLImageElement).src = avatarSvg(item.nombre) }}
+            />
+            <div>
+              <p className="font-bold text-sm text-slate-800">{item.nombre}</p>
+              <p className="text-xs text-slate-500">Torre {item.torre} · Apto {item.apartamento}</p>
+              <span className={`mt-1 inline-flex items-center gap-1 text-xs font-semibold ${item.huella_registrada ? 'text-emerald-600' : 'text-slate-400'}`}>
+                <Fingerprint className="w-3 h-3" />
+                {item.huella_registrada ? 'Huella registrada' : 'Sin huella'}
+              </span>
+            </div>
+          </div>
+
+          {/* Browser support warning */}
+          {!isSupported && (
+            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-2xl p-3">
+              <span className="text-lg leading-none">⚠️</span>
+              <div>
+                <p className="text-xs font-semibold text-amber-800">Navegador no compatible</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  El registro de huella requiere <strong>Google Chrome</strong> o <strong>Microsoft Edge</strong> (versión 89+) con el lector conectado por USB.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Status */}
+          {step !== 'idle' && (
+            <div className={`flex items-center gap-3 rounded-2xl p-4 border ${
+              step === 'done' ? 'bg-emerald-50 border-emerald-200' :
+              step === 'error' ? 'bg-rose-50 border-rose-200' :
+              'bg-brand-50 border-brand-200'
+            }`}>
+              <span className="text-2xl leading-none flex-shrink-0">{stepIcon[step]}</span>
+              <div>
+                {step !== 'error' && (
+                  <p className={`text-sm font-semibold ${step === 'done' ? 'text-emerald-800' : 'text-brand-800'}`}>{msg}</p>
+                )}
+                {(step === 'step1' || step === 'step2') && (
+                  <p className="text-xs text-brand-600 mt-0.5 flex items-center gap-1">
+                    <span className="w-3 h-3 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin inline-block" />
+                    Esperando huella...
+                  </p>
+                )}
+                {(step === 'connecting' || step === 'saving') && (
+                  <p className="text-xs text-brand-600 mt-0.5 flex items-center gap-1">
+                    <span className="w-3 h-3 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin inline-block" />
+                    Procesando...
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {error && <p className="field-error">{error}</p>}
+
+          {/* Sensor diagram hint */}
+          {(step === 'step1' || step === 'step2') && (
+            <div className="flex flex-col items-center gap-2 py-3">
+              <div className="w-20 h-24 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50 flex items-center justify-center">
+                <Fingerprint className="w-10 h-10 text-brand-400 animate-pulse" />
+              </div>
+              <p className="text-xs text-slate-500">Coloca el dedo sobre el sensor</p>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={() => { void handleClose() }} className="btn-cancel flex-1">
+              {step === 'done' ? 'Cerrar' : 'Cancelar'}
+            </button>
+
+            {(step === 'idle' || step === 'error') && isSupported && (
+              <button type="button" onClick={() => { void startEnrollment() }} className="btn-primary flex-1">
+                <Fingerprint className="w-4 h-4" />
+                {item.huella_registrada ? 'Actualizar huella' : 'Registrar huella'}
+              </button>
+            )}
+
+            {(step === 'idle' || step === 'error') && item.huella_registrada && (
+              <button type="button" onClick={() => { void handleDeleteHuella() }}
+                className="w-10 h-10 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors flex-shrink-0"
+                title="Eliminar huella">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ── BulkImportModal ───────────────────────────────────────────────────────────
@@ -466,6 +673,7 @@ export default function ListarPropietarios() {
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<PropietarioOut | null>(null)
   const [deleting, setDeleting] = useState<PropietarioOut | null>(null)
+  const [fpEditing, setFpEditing] = useState<PropietarioOut | null>(null)
   const [downloadingQrUid, setDownloadingQrUid] = useState<string | null>(null)
   const [togglingUid, setTogglingUid] = useState<string | null>(null)
   const [showBulkImport, setShowBulkImport] = useState(false)
@@ -556,6 +764,11 @@ export default function ListarPropietarios() {
 
   const handleBulkImported = (newItems: PropietarioOut[]) => {
     setPropietarios((prev) => [...prev, ...newItems])
+  }
+
+  const handleFpSaved = (updated: PropietarioOut) => {
+    setPropietarios((prev) => prev.map((p) => (p.uid === updated.uid ? updated : p)))
+    setFpEditing(updated)   // keep modal open showing result
   }
 
   return (
@@ -723,6 +936,18 @@ export default function ListarPropietarios() {
                       : <ShieldX className="w-3.5 h-3.5" />
                   }
                 </button>
+                <button
+                  onClick={() => setFpEditing(p)}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
+                    p.huella_registrada
+                      ? 'bg-violet-50 hover:bg-violet-100 text-violet-600'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-400'
+                  }`}
+                  aria-label="Gestionar huella"
+                  title={p.huella_registrada ? 'Huella registrada — clic para actualizar' : 'Registrar huella'}
+                >
+                  <Fingerprint className="w-3.5 h-3.5" />
+                </button>
                 <button onClick={() => { void handleDownloadQr(p) }} disabled={downloadingQrUid === p.uid}
                   className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors disabled:opacity-60"
                   aria-label="Descargar QR">
@@ -746,6 +971,9 @@ export default function ListarPropietarios() {
         </div>
       )}
 
+      {fpEditing && (
+        <RegisterFingerprintModal item={fpEditing} onClose={() => setFpEditing(null)} onSaved={handleFpSaved} />
+      )}
       {editing && (
         <EditModal item={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />
       )}

@@ -63,6 +63,7 @@ class PropietarioOut(BaseModel):
     apartamento: str
     foto_url: str | None = None
     acceso_habilitado: bool = True
+    huella_registrada: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -90,6 +91,17 @@ class HistorialAccesoOut(BaseModel):
 class BulkImportResponse(BaseModel):
     creados: list[PropietarioOut]
     errores: list[str]
+
+
+class HuellaRegisterIn(BaseModel):
+    template_b64: str
+
+
+class HuellaTemplate(BaseModel):
+    uid: str
+    template_b64: str
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserOut(BaseModel):

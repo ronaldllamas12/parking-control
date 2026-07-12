@@ -187,6 +187,38 @@ def toggle_acceso_propietario(
     return propietario
 
 
+# ── Fingerprint endpoints ─────────────────────────────────────────────────────
+
+@router.post("/{uid}/huella", response_model=schemas.PropietarioOut)
+def registrar_huella(
+    uid: str,
+    payload: schemas.HuellaRegisterIn,
+    _: object = Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    propietario = crud.get_propietario_by_uid(db, uid)
+    if not propietario:
+        raise HTTPException(status_code=404, detail="Propietario no encontrado")
+    propietario = crud.save_huella(db, propietario, payload.template_b64)
+    logger.info("Huella registrada uid=%s", uid)
+    return propietario
+
+
+@router.delete("/{uid}/huella", response_model=schemas.PropietarioOut)
+def eliminar_huella(
+    uid: str,
+    _: object = Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    propietario = crud.get_propietario_by_uid(db, uid)
+    if not propietario:
+        raise HTTPException(status_code=404, detail="Propietario no encontrado")
+    propietario = crud.delete_huella(db, propietario)
+    logger.info("Huella eliminada uid=%s", uid)
+    return propietario
+
+
+
 @router.post("/bulk", response_model=schemas.BulkImportResponse)
 def registrar_propietarios_bulk(
     items: list[schemas.PropietarioCreate],

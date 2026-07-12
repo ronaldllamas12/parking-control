@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from app.database import Base
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
@@ -52,6 +52,7 @@ class Propietario(Base):
     apartamento: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
     foto_url: Mapped[str] = mapped_column(String(500), nullable=False)
     acceso_habilitado: Mapped[bool] = mapped_column(nullable=False, default=True, server_default="true")
+    huella_registrada: Mapped[bool] = mapped_column(nullable=False, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -60,6 +61,9 @@ class Propietario(Base):
 
     accesos: Mapped[list["HistorialAcceso"]] = relationship(
         back_populates="propietario", cascade="all, delete-orphan"
+    )
+    huella: Mapped["HuellaDigital | None"] = relationship(
+        back_populates="propietario", cascade="all, delete-orphan", uselist=False
     )
 
 
@@ -82,3 +86,21 @@ class HistorialAcceso(Base):
     )
 
     propietario: Mapped[Propietario] = relationship(back_populates="accesos")
+
+
+class HuellaDigital(Base):
+    __tablename__ = "huellas_digitales"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    propietario_id: Mapped[int] = mapped_column(
+        ForeignKey("propietarios.id"), nullable=False, unique=True, index=True
+    )
+    propietario_uid: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    template_b64: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    propietario: Mapped[Propietario] = relationship(back_populates="huella")

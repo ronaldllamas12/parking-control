@@ -18,6 +18,7 @@ export interface PropietarioOut {
   apartamento: string
   foto_url: string
   acceso_habilitado: boolean
+  huella_registrada: boolean
 }
 
 export interface PropietarioUpdate {
@@ -52,6 +53,12 @@ export interface HistorialAccesoOut {
 export interface BulkImportResult {
   creados: PropietarioOut[]
   errores: string[]
+}
+
+// ── Fingerprint ────────────────────────────────────────────────────────────
+export interface HuellaTemplate {
+  uid: string
+  template_b64: string
 }
 
 // ── API errors ────────────────────────────────────────────────────────────────

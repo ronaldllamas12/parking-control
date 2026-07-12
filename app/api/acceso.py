@@ -74,3 +74,17 @@ def historial_reciente(
         )
         for log in logs
     ]
+
+
+@router.get("/huellas", response_model=list[schemas.HuellaTemplate])
+def listar_huellas(
+    _current_user=Depends(role_required(["vigilante"])),
+    db: Session = Depends(get_db),
+):
+    """Return all enrolled fingerprint templates for client-side matching."""
+    huellas = crud.get_all_huellas(db)
+    return [
+        schemas.HuellaTemplate(uid=h.propietario_uid, template_b64=h.template_b64)
+        for h in huellas
+    ]
+

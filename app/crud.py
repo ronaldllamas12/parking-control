@@ -145,3 +145,44 @@ def toggle_acceso_propietario(
     return propietario
 
 
+# ── Fingerprint / Huella ──────────────────────────────────────────────────────
+
+def save_huella(
+    db: Session, propietario: models.Propietario, template_b64: str
+) -> models.Propietario:
+    existing = (
+        db.query(models.HuellaDigital)
+        .filter(models.HuellaDigital.propietario_id == propietario.id)
+        .first()
+    )
+    if existing:
+        existing.template_b64 = template_b64
+    else:
+        huella = models.HuellaDigital(
+            propietario_id=propietario.id,
+            propietario_uid=propietario.uid,
+            template_b64=template_b64,
+        )
+        db.add(huella)
+    propietario.huella_registrada = True
+    db.commit()
+    db.refresh(propietario)
+    return propietario
+
+
+def delete_huella(
+    db: Session, propietario: models.Propietario
+) -> models.Propietario:
+    db.query(models.HuellaDigital).filter(
+        models.HuellaDigital.propietario_id == propietario.id
+    ).delete()
+    propietario.huella_registrada = False
+    db.commit()
+    db.refresh(propietario)
+    return propietario
+
+
+def get_all_huellas(db: Session) -> list[models.HuellaDigital]:
+    return db.query(models.HuellaDigital).all()
+
+

@@ -1,9 +1,8 @@
-import type { HistorialAccesoOut, VerificacionResponse } from '../types'
+import type { HistorialAccesoOut, HuellaTemplate, VerificacionResponse } from '../types'
 import apiClient from './axios'
 
 /**
  * GET /api/v1/acceso/verificar/{uid}
- * Returns 404 if UID not found, or propietario + acceso timestamp on success.
  */
 export async function verificarAcceso(uid: string): Promise<VerificacionResponse> {
   const { data } = await apiClient.get<VerificacionResponse>(
@@ -17,5 +16,11 @@ export async function listarHistorialReciente(): Promise<HistorialAccesoOut[]> {
   const { data } = await apiClient.get<HistorialAccesoOut[]>(
     '/api/v1/acceso/historial-reciente',
   )
+  return data
+}
+
+/** GET /api/v1/acceso/huellas — all enrolled fingerprint templates (vigilante only) */
+export async function listarHuellas(): Promise<HuellaTemplate[]> {
+  const { data } = await apiClient.get<HuellaTemplate[]>('/api/v1/acceso/huellas')
   return data
 }

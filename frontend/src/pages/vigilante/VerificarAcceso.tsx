@@ -5,6 +5,7 @@ import {
     CameraOff,
     Clock,
     CreditCard,
+    Fingerprint,
     Home,
     Phone,
     QrCode,
@@ -12,11 +13,18 @@ import {
     Search,
     ShieldCheck,
     ShieldX,
+    Usb,
 } from 'lucide-react'
 import QrScanner from 'qr-scanner'
 import { useEffect, useRef, useState } from 'react'
-import { listarHistorialReciente, verificarAcceso } from '../../api/acceso'
+import { listarHistorialReciente, listarHuellas, verificarAcceso } from '../../api/acceso'
 import type { ApiErrorBody, HistorialAccesoOut, VerificacionResponse } from '../../types'
+import {
+    FingerprintError,
+    FingerprintReader,
+    MATCH_THRESHOLD,
+    isWebSerialSupported,
+} from '../../utils/fingerprintSerial'
 
 // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function formatDateTime(iso: string): string {
@@ -59,6 +67,7 @@ function InfoCard({ icon, label, value }: { icon: React.ReactNode; label: string
 
 // â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function VerificarAcceso() {
+  // ── QR / manual state ──────────────────────────────────────────────────────
   const [uid, setUid] = useState('')
   const [loading, setLoading] = useState(false)
   const [cameraLoading, setCameraLoading] = useState(false)
@@ -69,6 +78,16 @@ export default function VerificarAcceso() {
   const [deniedPazYSalvo, setDeniedPazYSalvo] = useState(false)
   const [historial, setHistorial] = useState<HistorialAccesoOut[]>([])
   const [historialError, setHistorialError] = useState<string | null>(null)
+
+  // ── Fingerprint state ──────────────────────────────────────────────────────
+  type FpStatus = 'idle' | 'connecting' | 'scanning' | 'searching' | 'done' | 'error'
+  const [fpStatus, setFpStatus] = useState<FpStatus>('idle')
+  const [fpMsg, setFpMsg] = useState('')
+  const [fpProgress, setFpProgress] = useState(0)
+  const [fpError, setFpError] = useState<string | null>(null)
+  const fpReaderRef = useRef<FingerprintReader | null>(null)
+
+  // ── Refs ───────────────────────────────────────────────────────────────────
   const inputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<QrScanner | null>(null)
@@ -83,8 +102,106 @@ export default function VerificarAcceso() {
       scannerRef.current?.stop()
       scannerRef.current?.destroy()
       scannerRef.current = null
+      void fpReaderRef.current?.disconnect()
+      fpReaderRef.current = null
     }
   }, [])
+
+  // ── Fingerprint scan ───────────────────────────────────────────────────────
+  const startFingerprintScan = async () => {
+    setFpError(null)
+    setFpProgress(0)
+    setResult(null)
+    setDenied(null)
+    setDeniedPazYSalvo(false)
+
+    try {
+      // 1. Connect reader
+      setFpStatus('connecting')
+      setFpMsg('Conectando al lector de huella...')
+      const reader = new FingerprintReader()
+      fpReaderRef.current = reader
+      await reader.connect()
+
+      // 2. Capture fingerprint
+      setFpStatus('scanning')
+      setFpMsg('Coloca el dedo sobre el sensor...')
+      await reader.captureOnce()   // stores in CharBuffer1 on sensor
+
+      // 3. Load all templates from server
+      setFpStatus('searching')
+      setFpMsg('Comparando con huellas registradas...')
+      const huellas = await listarHuellas()
+
+      if (huellas.length === 0) {
+        setFpError('No hay huellas registradas en el sistema.')
+        setFpStatus('error')
+        await reader.disconnect()
+        fpReaderRef.current = null
+        return
+      }
+
+      // 4. Identify using sensor hardware matching
+      const templates = huellas.map((h) => ({
+        uid: h.uid,
+        templateBytes: Uint8Array.from(atob(h.template_b64), (c) => c.charCodeAt(0)),
+      }))
+
+      const match = await reader.identifyFromBuffer(templates, (pct) => setFpProgress(pct))
+
+      await reader.disconnect()
+      fpReaderRef.current = null
+
+      // 5. Resolve match via backend (logs access, checks acceso_habilitado)
+      if (!match || match.score < MATCH_THRESHOLD) {
+        setFpStatus('done')
+        setDenied('Huella no reconocida. Propietario no registrado.')
+        return
+      }
+
+      setFpStatus('done')
+      setFpMsg(`Huella identificada (score ${match.score}). Verificando acceso...`)
+
+      // Use existing verificarAcceso — logs + checks paz y salvo
+      setLoading(true)
+      try {
+        const data = await verificarAcceso(match.uid)
+        setResult(data)
+        setUid(match.uid)
+        await loadHistorial()
+      } catch (err) {
+        const axiosErr = err as AxiosError<ApiErrorBody>
+        if (axiosErr.response?.status === 403) {
+          setDeniedPazYSalvo(true)
+        } else if (axiosErr.response?.status === 404) {
+          setDenied('ID no encontrado en el sistema')
+        } else {
+          setDenied(axiosErr.response?.data?.detail ?? 'Error de conexión')
+        }
+      } finally {
+        setLoading(false)
+      }
+    } catch (e) {
+      await fpReaderRef.current?.disconnect().catch(() => undefined)
+      fpReaderRef.current = null
+      setFpStatus('error')
+      if (e instanceof FingerprintError) {
+        setFpError(e.message)
+      } else {
+        setFpError(e instanceof Error ? e.message : 'Error desconocido con el lector.')
+      }
+    }
+  }
+
+  const resetFp = () => {
+    setFpStatus('idle')
+    setFpMsg('')
+    setFpProgress(0)
+    setFpError(null)
+    setResult(null)
+    setDenied(null)
+    setDeniedPazYSalvo(false)
+  }
 
   const loadHistorial = async () => {
     setHistorialError(null)
@@ -219,11 +336,89 @@ export default function VerificarAcceso() {
           </div>
           <h1 className="page-title">Verificar Acceso</h1>
         </div>
-        <p className="page-subtitle pl-12">Escanea el QR o ingresa manualmente el ID del propietario.</p>
+        <p className="page-subtitle pl-12">Escanea el QR, ingresa el ID manualmente, o usa el lector de huella.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
         <div>
+
+          {/* ── Fingerprint card ─────────────────────────────────────────── */}
+          <div className="card-lg p-4 mb-5">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center">
+                  <Fingerprint className="w-4 h-4 text-violet-600" />
+                </div>
+                <span className="text-sm font-bold text-slate-800">Lector de Huella</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {fpStatus !== 'idle' && fpStatus !== 'error' && fpStatus !== 'done' && (
+                  <span className="text-xs text-slate-500 flex items-center gap-1">
+                    <span className="w-3 h-3 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin" />
+                    {fpMsg}
+                  </span>
+                )}
+                {(fpStatus === 'idle' || fpStatus === 'error') && (
+                  <button
+                    type="button"
+                    onClick={() => { void startFingerprintScan() }}
+                    disabled={!isWebSerialSupported()}
+                    className="btn-primary px-4 py-2 text-xs bg-violet-600 hover:bg-violet-700 disabled:opacity-50"
+                    title={!isWebSerialSupported() ? 'Requiere Chrome o Edge' : ''}
+                  >
+                    <Fingerprint className="w-4 h-4" />
+                    {isWebSerialSupported() ? 'Identificar por huella' : 'Solo Chrome/Edge'}
+                  </button>
+                )}
+                {(fpStatus === 'done' || fpStatus === 'error') && (
+                  <button type="button" onClick={resetFp} className="btn-cancel px-3 py-2 text-xs">
+                    <RotateCcw className="w-3.5 h-3.5" />Nueva lectura
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            {fpStatus === 'searching' && (
+              <div className="mt-2">
+                <div className="flex justify-between text-xs text-slate-500 mb-1">
+                  <span>Comparando huellas...</span>
+                  <span>{fpProgress}%</span>
+                </div>
+                <div className="h-2 bg-surface-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-violet-500 rounded-full transition-all duration-200"
+                    style={{ width: `${fpProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {fpError && (
+              <p className="field-error mt-2">{fpError}</p>
+            )}
+
+            {/* Idle hint */}
+            {fpStatus === 'idle' && (
+              <div className="mt-2 flex items-center gap-3 p-3 bg-surface-50 rounded-2xl border border-dashed border-surface-300">
+                <Usb className="w-5 h-5 text-slate-300 flex-shrink-0" />
+                <p className="text-xs text-slate-400">
+                  Conecta el lector ZFM-20 / R307 vía USB y presiona <strong>Identificar por huella</strong>.
+                  Funciona con adaptadores CH340, CP210x y FTDI.
+                </p>
+              </div>
+            )}
+
+            {/* Scanning prompt */}
+            {(fpStatus === 'scanning') && (
+              <div className="mt-3 flex flex-col items-center gap-2 py-4">
+                <div className="w-20 h-24 rounded-2xl border-2 border-dashed border-violet-300 bg-violet-50 flex items-center justify-center">
+                  <Fingerprint className="w-10 h-10 text-violet-400 animate-pulse" />
+                </div>
+                <p className="text-xs text-slate-500">Coloca el dedo sobre el sensor</p>
+              </div>
+            )}
+          </div>
 
           {/* QR Scanner card */}
           <div className="card-lg p-4 mb-5">
