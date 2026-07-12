@@ -51,6 +51,7 @@ class Propietario(Base):
     torre: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
     apartamento: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
     foto_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    acceso_habilitado: Mapped[bool] = mapped_column(nullable=False, default=True, server_default="true")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

@@ -17,6 +17,7 @@ export interface PropietarioOut {
   torre: string
   apartamento: string
   foto_url: string
+  acceso_habilitado: boolean
 }
 
 export interface PropietarioUpdate {

@@ -2,9 +2,8 @@ import secrets
 from typing import Optional
 
 import bcrypt as _bcrypt
-from sqlalchemy.orm import Session
-
 from app import models, schemas
+from sqlalchemy.orm import Session
 
 
 def _generate_short_uid(length: int = 10) -> str:
@@ -135,5 +134,14 @@ def update_propietario(
 def delete_propietario(db: Session, propietario: models.Propietario) -> None:
     db.delete(propietario)
     db.commit()
+
+
+def toggle_acceso_propietario(
+    db: Session, propietario: models.Propietario
+) -> models.Propietario:
+    propietario.acceso_habilitado = not propietario.acceso_habilitado
+    db.commit()
+    db.refresh(propietario)
+    return propietario
 
 

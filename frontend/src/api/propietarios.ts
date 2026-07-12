@@ -52,3 +52,9 @@ export async function actualizarPropietario(
 export async function eliminarPropietario(uid: string): Promise<void> {
   await apiClient.delete(`/api/v1/propietarios/${uid}`)
 }
+
+/** PATCH /api/v1/propietarios/{uid}/toggle-acceso */
+export async function toggleAccesoPropietario(uid: string): Promise<PropietarioOut> {
+  const { data } = await apiClient.patch<PropietarioOut>(`/api/v1/propietarios/${uid}/toggle-acceso`)
+  return data
+}

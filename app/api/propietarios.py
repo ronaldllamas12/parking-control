@@ -1,16 +1,15 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from pydantic import ValidationError
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import Session
-
 from app import crud, schemas
 from app.database import get_db
 from app.exceptions import AppException
 from app.security import role_required
 from app.services.cloudinary_service import upload_owner_photo
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/propietarios", tags=["propietarios"])
 logger = logging.getLogger(__name__)
@@ -168,3 +167,20 @@ def eliminar_propietario(
         raise
 
     logger.info("Propietario eliminado uid=%s", uid)
+
+
+@router.patch("/{uid}/toggle-acceso", response_model=schemas.PropietarioOut)
+def toggle_acceso_propietario(
+    uid: str,
+    _: object = Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    propietario = crud.get_propietario_by_uid(db, uid)
+    if not propietario:
+        raise HTTPException(status_code=404, detail="Propietario no encontrado")
+
+    propietario = crud.toggle_acceso_propietario(db, propietario)
+    estado = "habilitado" if propietario.acceso_habilitado else "deshabilitado"
+    logger.info("Acceso %s para propietario uid=%s", estado, uid)
+    return propietario
+

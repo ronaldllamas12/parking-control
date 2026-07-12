@@ -66,6 +66,7 @@ export default function VerificarAcceso() {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [result, setResult] = useState<VerificacionResponse | null>(null)
   const [denied, setDenied] = useState<string | null>(null)
+  const [deniedPazYSalvo, setDeniedPazYSalvo] = useState(false)
   const [historial, setHistorial] = useState<HistorialAccesoOut[]>([])
   const [historialError, setHistorialError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -103,13 +104,16 @@ export default function VerificarAcceso() {
     setLoading(true)
     setResult(null)
     setDenied(null)
+    setDeniedPazYSalvo(false)
     try {
       const data = await verificarAcceso(trimmed)
       setResult(data)
       await loadHistorial()
     } catch (err) {
       const axiosErr = err as AxiosError<ApiErrorBody>
-      if (axiosErr.response?.status === 404) {
+      if (axiosErr.response?.status === 403) {
+        setDeniedPazYSalvo(true)
+      } else if (axiosErr.response?.status === 404) {
         setDenied('ID no encontrado en el sistema')
       } else {
         setDenied(axiosErr.response?.data?.detail ?? 'Error de conexión')
@@ -200,6 +204,7 @@ export default function VerificarAcceso() {
     setUid('')
     setResult(null)
     setDenied(null)
+    setDeniedPazYSalvo(false)
     setTimeout(() => inputRef.current?.focus(), 50)
   }
 
@@ -348,7 +353,31 @@ export default function VerificarAcceso() {
             </div>
           )}
 
-          {/* Access Denied */}
+          {/* Paz y Salvo — access disabled by admin */}
+          {deniedPazYSalvo && (
+            <div className="animate-scale-in space-y-4">
+              <div className="card-lg overflow-hidden">
+                <div className="bg-gradient-to-br from-amber-600 to-orange-500 px-6 py-8 text-center text-white">
+                  <div className="w-16 h-16 rounded-3xl bg-white/20 border border-white/30 flex items-center justify-center mx-auto mb-3">
+                    <ShieldX className="w-8 h-8" />
+                  </div>
+                  <p className="font-extrabold text-xl">Acceso Denegado</p>
+                  <p className="text-white/90 font-bold text-sm mt-2">
+                    NO SE ENCUENTRA PAZ Y SALVO CON LA ADMINISTRACIÓN
+                  </p>
+                  <p className="text-white/75 text-sm mt-2 leading-relaxed">
+                    Por favor acercarse a administración para resolver la situación.
+                  </p>
+                  <p className="text-white/50 text-xs mt-3 font-mono">ID: {uid}</p>
+                </div>
+              </div>
+              <button onClick={handleReset} className="btn-secondary w-full">
+                <RotateCcw className="w-4 h-4" />Intentar con otro ID
+              </button>
+            </div>
+          )}
+
+          {/* Access Denied — not found or other error */}
           {denied && (
             <div className="animate-scale-in space-y-4">
               <div className="card-lg overflow-hidden">

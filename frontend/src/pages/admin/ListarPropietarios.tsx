@@ -1,22 +1,25 @@
 import type { AxiosError } from 'axios'
 import {
-  Building2,
-  Download,
-  Edit2,
-  Home,
-  Phone,
-  Plus,
-  RefreshCw,
-  Save,
-  Trash2,
-  X,
+    Building2,
+    Download,
+    Edit2,
+    Home,
+    Phone,
+    Plus,
+    RefreshCw,
+    Save,
+    ShieldCheck,
+    ShieldX,
+    Trash2,
+    X,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  actualizarPropietario,
-  eliminarPropietario,
-  listarPropietarios,
+    actualizarPropietario,
+    eliminarPropietario,
+    listarPropietarios,
+    toggleAccesoPropietario,
 } from '../../api/propietarios'
 import type { ApiErrorBody, PropietarioOut } from '../../types'
 import { createOwnerQrDataUrl, qrFileName } from '../../utils/qrDownload'
@@ -208,6 +211,7 @@ export default function ListarPropietarios() {
   const [editing, setEditing] = useState<PropietarioOut | null>(null)
   const [deleting, setDeleting] = useState<PropietarioOut | null>(null)
   const [downloadingQrUid, setDownloadingQrUid] = useState<string | null>(null)
+  const [togglingUid, setTogglingUid] = useState<string | null>(null)
   const location = useLocation()
   const isEditMode = new URLSearchParams(location.search).get('mode') === 'edit'
 
@@ -254,6 +258,19 @@ export default function ListarPropietarios() {
       setError(`No se pudo generar el QR para el UID ${item.uid}`)
     } finally {
       setDownloadingQrUid(null)
+    }
+  }
+
+  const handleToggleAcceso = async (item: PropietarioOut) => {
+    setTogglingUid(item.uid)
+    try {
+      const updated = await toggleAccesoPropietario(item.uid)
+      setPropietarios((prev) => prev.map((p) => (p.uid === updated.uid ? updated : p)))
+    } catch (err) {
+      const axiosErr = err as AxiosError<ApiErrorBody>
+      setError(axiosErr.response?.data?.detail ?? 'Error al cambiar estado de acceso')
+    } finally {
+      setTogglingUid(null)
     }
   }
 
@@ -307,18 +324,34 @@ export default function ListarPropietarios() {
           {propietarios.map((p) => (
             <div
               key={p.uid}
-              className="card p-4 flex items-center gap-3 hover:-translate-y-0.5 hover:shadow-card-lg transition-all duration-200"
+              className={`card p-4 flex items-center gap-3 hover:-translate-y-0.5 hover:shadow-card-lg transition-all duration-200 ${!p.acceso_habilitado ? 'opacity-75 border-rose-200' : ''}`}
             >
-              <img
-                src={p.foto_url} alt={p.nombre}
-                className="h-14 w-14 rounded-2xl object-cover border border-surface-200 shadow-sm flex-shrink-0"
-                onError={(e) => { ;(e.target as HTMLImageElement).src = avatarSvg(p.nombre) }}
-              />
+              <div className="relative flex-shrink-0">
+                <img
+                  src={p.foto_url} alt={p.nombre}
+                  className={`h-14 w-14 rounded-2xl object-cover border-2 shadow-sm ${p.acceso_habilitado ? 'border-surface-200' : 'border-rose-300'}`}
+                  onError={(e) => { ;(e.target as HTMLImageElement).src = avatarSvg(p.nombre) }}
+                />
+                {!p.acceso_habilitado && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center shadow-sm">
+                    <ShieldX className="w-3 h-3 text-white" />
+                  </div>
+                )}
+              </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-slate-900">{p.nombre}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
                   <span className="badge-blue"><Building2 className="w-2.5 h-2.5" />T{p.torre}</span>
                   <span className="badge bg-surface-100 text-slate-600 border border-surface-200"><Home className="w-2.5 h-2.5" />{p.apartamento}</span>
+                  {p.acceso_habilitado ? (
+                    <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                      <ShieldCheck className="w-2.5 h-2.5" />Acceso OK
+                    </span>
+                  ) : (
+                    <span className="badge bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                      <ShieldX className="w-2.5 h-2.5" />Denegado
+                    </span>
+                  )}
                 </div>
                 {p.numero_contacto && (
                   <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-400">
@@ -327,6 +360,24 @@ export default function ListarPropietarios() {
                 )}
               </div>
               <div className="flex flex-col gap-1.5">
+                <button
+                  onClick={() => { void handleToggleAcceso(p) }}
+                  disabled={togglingUid === p.uid}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors disabled:opacity-60 ${
+                    p.acceso_habilitado
+                      ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'
+                      : 'bg-rose-50 hover:bg-rose-100 text-rose-600'
+                  }`}
+                  aria-label={p.acceso_habilitado ? 'Deshabilitar acceso' : 'Habilitar acceso'}
+                  title={p.acceso_habilitado ? 'Deshabilitar acceso' : 'Habilitar acceso'}
+                >
+                  {togglingUid === p.uid
+                    ? <span className={`w-3.5 h-3.5 border-2 rounded-full animate-spin ${p.acceso_habilitado ? 'border-emerald-200 border-t-emerald-600' : 'border-rose-200 border-t-rose-600'}`} />
+                    : p.acceso_habilitado
+                      ? <ShieldCheck className="w-3.5 h-3.5" />
+                      : <ShieldX className="w-3.5 h-3.5" />
+                  }
+                </button>
                 <button onClick={() => { void handleDownloadQr(p) }} disabled={downloadingQrUid === p.uid}
                   className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors disabled:opacity-60"
                   aria-label="Descargar QR">

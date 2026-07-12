@@ -62,6 +62,7 @@ class PropietarioOut(BaseModel):
     torre: str
     apartamento: str
     foto_url: str | None = None
+    acceso_habilitado: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 
