@@ -43,12 +43,12 @@ export default function Layout({ children }: { children: ReactNode }) {
           {/* Brand + links */}
           <div className="flex items-center gap-5 flex-shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-black/15 backdrop-blur border border-white/25
-                              flex items-center justify-center shadow-glow">
-                <Shield className="w-5 h-5 text-white" />
+              <div className="w-11 h-11 rounded-xl bg-white/95 backdrop-blur border border-white/25
+                              flex items-center justify-center shadow-glow overflow-hidden">
+                <img src="/logo.svg" alt="Logo" className="w-12 h-12 object-contain" />
               </div>
               <span className="font-extrabold text-white text-sm hidden sm:block tracking-tight">
-                Control de Acceso
+                Gestion de Acceso zonas Comunes
               </span>
             </div>
 

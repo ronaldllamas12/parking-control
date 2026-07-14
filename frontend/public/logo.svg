@@ -1,0 +1,56 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="blue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"></stop>
+      <stop offset="100%" stop-color="#1D4ED8"></stop>
+    </linearGradient>
+  </defs>
+
+  <!-- Arco -->
+  <path d="M90 300 A170 170 0 1 1 422 300" fill="none" stroke="url(#blue)" stroke-width="14" stroke-linecap="round"></path>
+
+  <!-- Base -->
+  <path d="M100 330 Q256 285 412 330" fill="none" stroke="url(#blue)" stroke-width="12" stroke-linecap="round"></path>
+
+  <!-- Edificios -->
+  <rect x="165" y="140" width="55" height="150" rx="4" fill="url(#blue)"></rect>
+  <rect x="230" y="90" width="60" height="200" rx="4" fill="url(#blue)"></rect>
+  <rect x="305" y="155" width="50" height="135" rx="4" fill="url(#blue)"></rect>
+
+  <!-- Ventanas -->
+  <g fill="#ffffff" opacity="0.85">
+    <rect x="177" y="160" width="28" height="8"></rect>
+    <rect x="177" y="182" width="28" height="8"></rect>
+    <rect x="177" y="204" width="28" height="8"></rect>
+
+    <rect x="246" y="112" width="28" height="8"></rect>
+    <rect x="246" y="134" width="28" height="8"></rect>
+    <rect x="246" y="156" width="28" height="8"></rect>
+    <rect x="246" y="178" width="28" height="8"></rect>
+    <rect x="246" y="200" width="28" height="8"></rect>
+
+    <rect x="317" y="175" width="24" height="8"></rect>
+    <rect x="317" y="197" width="24" height="8"></rect>
+    <rect x="317" y="219" width="24" height="8"></rect>
+  </g>
+
+  <!-- Comunidad -->
+  <circle cx="225" cy="320" r="10" fill="#1D4ED8"></circle>
+  <circle cx="256" cy="308" r="12" fill="#1D4ED8"></circle>
+  <circle cx="287" cy="320" r="10" fill="#1D4ED8"></circle>
+
+  <path d="M208 345c6-15 18-22 34-22s28 7 34 22" fill="none" stroke="#1D4ED8" stroke-width="8" stroke-linecap="round"></path>
+
+  <!-- Árbol -->
+  <circle cx="135" cy="265" r="18" fill="#2563EB"></circle>
+  <rect x="132" y="280" width="6" height="22" fill="#1D4ED8"></rect>
+
+  <!-- Texto -->
+  <text x="256" y="395" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700" fill="#123A7A">
+    GESTIÓN INTEGRAL
+  </text>
+
+  <text x="256" y="432" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="600" fill="#2563EB">
+    DE ZONAS COMUNES
+  </text>
+</svg>
