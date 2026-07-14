@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import bcrypt as _bcrypt
 from jose import JWTError, jwt
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app import crud, schemas
@@ -28,6 +29,8 @@ def authenticate_user(db: Session, username: str, password: str):
     if not user:
         return None
     if not verify_password(password, user.hashed_password):
+        return None
+    if user.role != "superadmin" and (user.conjunto is None or not user.conjunto.activo):
         return None
     return user
 
@@ -59,15 +62,39 @@ def get_current_user(
         )
         username: str | None = payload.get("sub")
         role: str | None = payload.get("role")
+        conjunto_id = payload.get("conjunto_id")
         if username is None or role is None:
             raise _credentials_exception()
-        token_data = schemas.TokenData(username=username, role=role)
+        token_data = schemas.TokenData(
+            username=username, role=role, conjunto_id=conjunto_id
+        )
     except JWTError as exc:
         raise _credentials_exception() from exc
 
     user = crud.get_user_by_username(db, username=token_data.username)
     if user is None:
         raise _credentials_exception()
+    if user.role != token_data.role:
+        raise _credentials_exception()
+    if user.role != "superadmin":
+        if user.conjunto_id is None:
+            raise _credentials_exception()
+        if user.conjunto is None or not user.conjunto.activo:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Conjunto residencial inactivo",
+            )
+        if str(user.conjunto_id) != str(token_data.conjunto_id):
+            raise _credentials_exception()
+        db.info["conjunto_id"] = user.conjunto_id
+        db.execute(
+            text("SELECT set_config('app.current_conjunto_id', :conjunto_id, false)"),
+            {"conjunto_id": str(user.conjunto_id)},
+        )
+    else:
+        db.execute(
+            text("SELECT set_config('app.current_conjunto_id', 'superadmin', false)")
+        )
     return user
 
 
@@ -77,6 +104,8 @@ def role_required(allowed_roles: list[str]) -> Callable:
             raise HTTPException(
                 status_code=403, detail="No tienes permisos para esta operacion"
             )
+        if user.role != "superadmin" and user.conjunto_id is None:
+            raise HTTPException(status_code=403, detail="Usuario sin conjunto asignado")
         return user
 
     return dependency

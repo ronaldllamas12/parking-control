@@ -15,6 +15,7 @@ import { base64UrlToBuffer, bufferToBase64Url } from '../utils/webauthn'
 interface JwtPayload {
   sub: string
   role: string
+  conjunto_id?: string | null
   exp: number
 }
 
@@ -40,7 +41,11 @@ function readUserFromStorage(): AuthUser | null {
       sessionStorage.removeItem('access_token')
       return null
     }
-    return { username: payload.sub, role: payload.role as AuthUser['role'] }
+    return {
+      username: payload.sub,
+      role: payload.role as AuthUser['role'],
+      conjunto_id: payload.conjunto_id ?? null,
+    }
   } catch {
     return null
   }
@@ -60,7 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const tokenResponse = await apiLogin(username, password)
       sessionStorage.setItem('access_token', tokenResponse.access_token)
       const payload = jwtDecode<JwtPayload>(tokenResponse.access_token)
-      setUser({ username: payload.sub, role: payload.role as AuthUser['role'] })
+      setUser({
+        username: payload.sub,
+        role: payload.role as AuthUser['role'],
+        conjunto_id: payload.conjunto_id ?? null,
+      })
     },
     [],
   )
@@ -99,7 +108,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const tokenResponse = await verifyWebAuthnAssertion(toSend)
     sessionStorage.setItem('access_token', tokenResponse.access_token)
     const payload = jwtDecode<JwtPayload>(tokenResponse.access_token)
-    setUser({ username: payload.sub, role: payload.role as AuthUser['role'] })
+    setUser({
+      username: payload.sub,
+      role: payload.role as AuthUser['role'],
+      conjunto_id: payload.conjunto_id ?? null,
+    })
   }, [])
 
   const webauthnRegister = useCallback(async (username: string) => {

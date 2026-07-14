@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
@@ -35,6 +36,63 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: str
     role: str
+    conjunto_id: UUID | None = None
+
+
+class ConjuntoResidencialCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    nombre: NombreStr
+    direccion: str | None = None
+
+
+class ConjuntoResidencialUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    nombre: NombreStr | None = None
+    direccion: str | None = None
+    activo: bool | None = None
+
+
+class AdminInicialCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    username: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=3, max_length=50)
+    ]
+    password: Annotated[str, StringConstraints(min_length=8, max_length=128)]
+
+
+class VigilanteCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    username: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=3, max_length=50)
+    ]
+    password: Annotated[str, StringConstraints(min_length=8, max_length=128)]
+
+
+class UserPasswordUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    password: Annotated[str, StringConstraints(min_length=8, max_length=128)]
+
+
+class ConjuntoWithAdminCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    conjunto: ConjuntoResidencialCreate
+    admin: AdminInicialCreate
+
+
+class ConjuntoResidencialOut(BaseModel):
+    id: UUID
+    nombre: str
+    direccion: str | None = None
+    activo: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PropietarioCreate(BaseModel):
@@ -105,8 +163,10 @@ class HuellaTemplate(BaseModel):
 
 
 class UserOut(BaseModel):
+    id: int
     username: str
     role: str
+    conjunto_id: UUID | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

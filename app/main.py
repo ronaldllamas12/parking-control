@@ -3,8 +3,10 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, propietarios, acceso
+from app import crud
+from app.api import acceso, auth, propietarios, superadmin
 from app.config import get_settings
+from app.database import SessionLocal
 from app.exceptions import register_exception_handlers
 
 logging.basicConfig(
@@ -41,8 +43,30 @@ app.add_middleware(
 
 # ── ROUTERS CON PREFIJO GLOBAL ───────────────────────
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(superadmin.router, prefix="/api/v1")
 app.include_router(propietarios.router, prefix="/api/v1")
 app.include_router(acceso.router, prefix="/api/v1")
+
+
+@app.on_event("startup")
+def ensure_superadmin_user() -> None:
+    if not settings.superadmin_password:
+        return
+
+    db = SessionLocal()
+    try:
+        existing = crud.get_user_by_username(db, settings.superadmin_username)
+        if not existing:
+            crud.create_user(
+                db,
+                username=settings.superadmin_username,
+                password=settings.superadmin_password,
+                role="superadmin",
+                conjunto_id=None,
+            )
+            logging.info("Super Admin inicial creado usuario=%s", settings.superadmin_username)
+    finally:
+        db.close()
 
 
 @app.get("/")

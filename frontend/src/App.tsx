@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import RegisterFingerprint from './pages/RegisterFingerprint'
 import ListarPropietarios from './pages/admin/ListarPropietarios'
 import RegistrarPropietario from './pages/admin/RegistrarPropietario'
+import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard'
 import VerificarAcceso from './pages/vigilante/VerificarAcceso'
 
 export default function App() {
@@ -15,6 +16,18 @@ export default function App() {
         <Routes>
           {/* Public */}
           <Route path="/login" element={<Login />} />
+
+          {/* Super Admin-only routes */}
+          <Route element={<ProtectedRoute allowedRoles={['superadmin']} />}>
+            <Route
+              path="/superadmin/conjuntos"
+              element={
+                <Layout>
+                  <SuperAdminDashboard />
+                </Layout>
+              }
+            />
+          </Route>
 
           {/* Admin-only routes */}
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>

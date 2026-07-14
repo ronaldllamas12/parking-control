@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     admin_password: str = Field(alias="ADMIN_PASSWORD")
     vigilante_username: str = Field(default="vigilante", alias="VIGILANTE_USERNAME")
     vigilante_password: str = Field(alias="VIGILANTE_PASSWORD")
+    superadmin_username: str = Field(default="superadmin", alias="SUPERADMIN_USERNAME")
+    superadmin_password: str = Field(default="", alias="SUPERADMIN_PASSWORD")
 
     @property
     def cors_origins_list(self) -> List[str]:

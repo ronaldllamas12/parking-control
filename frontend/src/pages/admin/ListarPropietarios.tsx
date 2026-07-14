@@ -37,6 +37,12 @@ import {
     FingerprintReader,
     isWebSerialSupported,
 } from '../../utils/fingerprintSerial'
+import { createOwnerQrDataUrl, qrFileName } from '../../utils/qrDownload'
+
+function avatarSvg(letter: string): string {
+  const encoded = encodeURIComponent(letter.toUpperCase())
+  return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" rx="16" fill="%232563eb"/><text x="48" y="62" font-size="42" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold">${encoded}</text></svg>`
+}
 
 // ── RegisterFingerprintModal ──────────────────────────────────────────────────
 interface RegisterFingerprintModalProps {

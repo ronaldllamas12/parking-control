@@ -28,8 +28,14 @@ export default function Login() {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
+  const routeForRole = (role: string) => {
+    if (role === 'superadmin') return '/superadmin/conjuntos'
+    if (role === 'admin') return '/admin/registrar'
+    return '/vigilante/verificar'
+  }
+
   useEffect(() => {
-    if (user) navigate(user.role === 'admin' ? '/admin/registrar' : '/vigilante/verificar', { replace: true })
+    if (user) navigate(routeForRole(user.role), { replace: true })
   }, [user, navigate])
 
   const onSubmit = async ({ username, password }: FormValues) => {

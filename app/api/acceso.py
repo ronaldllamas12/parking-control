@@ -18,7 +18,9 @@ def verificar_acceso(
     current_user=Depends(role_required(["vigilante"])),
     db: Session = Depends(get_db),
 ):
-    propietario = crud.get_propietario_by_uid(db, uid=uid.upper())
+    propietario = crud.get_propietario_by_uid(
+        db, uid=uid.upper(), conjunto_id=current_user.conjunto_id
+    )
     if not propietario:
         logger.warning("Acceso denegado uid=%s motivo=no_encontrado", uid.upper())
         raise AppException(status_code=404, detail="Propietario no encontrado")
@@ -60,7 +62,10 @@ def historial_reciente(
     db: Session = Depends(get_db),
 ):
     logs = crud.get_recent_access_logs_by_vigilante(
-        db, vigilante_username=current_user.username, limit=10
+        db,
+        vigilante_username=current_user.username,
+        conjunto_id=current_user.conjunto_id,
+        limit=10,
     )
     return [
         schemas.HistorialAccesoOut(
@@ -78,13 +83,12 @@ def historial_reciente(
 
 @router.get("/huellas", response_model=list[schemas.HuellaTemplate])
 def listar_huellas(
-    _current_user=Depends(role_required(["vigilante"])),
+    current_user=Depends(role_required(["vigilante"])),
     db: Session = Depends(get_db),
 ):
     """Return all enrolled fingerprint templates for client-side matching."""
-    huellas = crud.get_all_huellas(db)
+    huellas = crud.get_all_huellas(db, conjunto_id=current_user.conjunto_id)
     return [
         schemas.HuellaTemplate(uid=h.propietario_uid, template_b64=h.template_b64)
         for h in huellas
     ]
-

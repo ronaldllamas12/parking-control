@@ -1,19 +1,57 @@
 from datetime import datetime, timezone
+from uuid import UUID, uuid4
 
 from app.database import Base
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+
+class ConjuntoResidencial(Base):
+    __tablename__ = "conjuntos_residenciales"
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid4, index=True
+    )
+    nombre: Mapped[str] = mapped_column(String(120), nullable=False, unique=True)
+    direccion: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    activo: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true", index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    usuarios: Mapped[list["User"]] = relationship(back_populates="conjunto")
+    propietarios: Mapped[list["Propietario"]] = relationship(back_populates="conjunto")
 
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint(
+            "(role = 'superadmin' AND conjunto_id IS NULL) OR "
+            "(role IN ('admin', 'vigilante') AND conjunto_id IS NOT NULL)",
+            name="ck_users_role_conjunto_scope",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=True,
+        index=True,
+    )
     username: Mapped[str] = mapped_column(
         String(50), unique=True, nullable=False, index=True
     )
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+
+    conjunto: Mapped[ConjuntoResidencial | None] = relationship(back_populates="usuarios")
 
 
 class WebAuthnCredential(Base):
@@ -41,10 +79,19 @@ class WebAuthnChallenge(Base):
 
 class Propietario(Base):
     __tablename__ = "propietarios"
+    __table_args__ = (
+        UniqueConstraint("conjunto_id", "uid", name="uq_propietarios_conjunto_uid"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
     uid: Mapped[str] = mapped_column(
-        String(16), unique=True, nullable=False, index=True
+        String(16), nullable=False, index=True
     )
     nombre: Mapped[str] = mapped_column(String(120), nullable=False)
     numero_contacto: Mapped[str | None] = mapped_column(String(30), nullable=True)
@@ -59,6 +106,7 @@ class Propietario(Base):
         nullable=False,
     )
 
+    conjunto: Mapped[ConjuntoResidencial] = relationship(back_populates="propietarios")
     accesos: Mapped[list["HistorialAcceso"]] = relationship(
         back_populates="propietario", cascade="all, delete-orphan"
     )
@@ -71,6 +119,12 @@ class HistorialAcceso(Base):
     __tablename__ = "historial_accesos"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
     propietario_id: Mapped[int] = mapped_column(
         ForeignKey("propietarios.id"), nullable=False, index=True
     )
@@ -92,6 +146,12 @@ class HuellaDigital(Base):
     __tablename__ = "huellas_digitales"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
     propietario_id: Mapped[int] = mapped_column(
         ForeignKey("propietarios.id"), nullable=False, unique=True, index=True
     )

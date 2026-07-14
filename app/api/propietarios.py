@@ -24,7 +24,7 @@ def registrar_propietario(
     torre: str = Form(...),
     apartamento: str = Form(...),
     foto: UploadFile = File(...),
-    _: object = Depends(role_required(["admin"])),
+    current_user=Depends(role_required(["admin"])),
     db: Session = Depends(get_db),
 ):
     logger.info(
@@ -62,7 +62,12 @@ def registrar_propietario(
 
     try:
         foto_url = upload_owner_photo(foto)
-        propietario = crud.create_propietario(db=db, payload=payload, foto_url=foto_url)
+        propietario = crud.create_propietario(
+            db=db,
+            payload=payload,
+            foto_url=foto_url,
+            conjunto_id=current_user.conjunto_id,
+        )
     except IntegrityError as exc:
         db.rollback()
         logger.warning(
@@ -103,10 +108,10 @@ def registrar_propietario(
 
 @router.get("/", response_model=list[schemas.PropietarioOut])
 def listar_propietarios(
-    _: object = Depends(role_required(["admin"])),
+    current_user=Depends(role_required(["admin"])),
     db: Session = Depends(get_db),
 ):
-    return crud.get_all_propietarios(db)
+    return crud.get_all_propietarios(db, conjunto_id=current_user.conjunto_id)
 
 
 @router.put("/{uid}", response_model=schemas.PropietarioOut)
@@ -117,10 +122,12 @@ def actualizar_propietario(
     torre: Optional[str] = Form(None),
     apartamento: Optional[str] = Form(None),
     foto: Optional[UploadFile] = File(None),
-    _: object = Depends(role_required(["admin"])),
+    current_user=Depends(role_required(["admin"])),
     db: Session = Depends(get_db),
 ):
-    propietario = crud.get_propietario_by_uid(db, uid)
+    propietario = crud.get_propietario_by_uid(
+        db, uid.upper(), conjunto_id=current_user.conjunto_id
+    )
     if not propietario:
         raise HTTPException(status_code=404, detail="Propietario no encontrado")
 
@@ -154,10 +161,12 @@ def actualizar_propietario(
 @router.delete("/{uid}", status_code=204)
 def eliminar_propietario(
     uid: str,
-    _: object = Depends(role_required(["admin"])),
+    current_user=Depends(role_required(["admin"])),
     db: Session = Depends(get_db),
 ):
-    propietario = crud.get_propietario_by_uid(db, uid)
+    propietario = crud.get_propietario_by_uid(
+        db, uid.upper(), conjunto_id=current_user.conjunto_id
+    )
     if not propietario:
         raise HTTPException(status_code=404, detail="Propietario no encontrado")
 
@@ -174,10 +183,12 @@ def eliminar_propietario(
 @router.patch("/{uid}/toggle-acceso", response_model=schemas.PropietarioOut)
 def toggle_acceso_propietario(
     uid: str,
-    _: object = Depends(role_required(["admin"])),
+    current_user=Depends(role_required(["admin"])),
     db: Session = Depends(get_db),
 ):
-    propietario = crud.get_propietario_by_uid(db, uid)
+    propietario = crud.get_propietario_by_uid(
+        db, uid.upper(), conjunto_id=current_user.conjunto_id
+    )
     if not propietario:
         raise HTTPException(status_code=404, detail="Propietario no encontrado")
 
@@ -193,10 +204,12 @@ def toggle_acceso_propietario(
 def registrar_huella(
     uid: str,
     payload: schemas.HuellaRegisterIn,
-    _: object = Depends(role_required(["admin"])),
+    current_user=Depends(role_required(["admin"])),
     db: Session = Depends(get_db),
 ):
-    propietario = crud.get_propietario_by_uid(db, uid)
+    propietario = crud.get_propietario_by_uid(
+        db, uid.upper(), conjunto_id=current_user.conjunto_id
+    )
     if not propietario:
         raise HTTPException(status_code=404, detail="Propietario no encontrado")
     propietario = crud.save_huella(db, propietario, payload.template_b64)
@@ -207,10 +220,12 @@ def registrar_huella(
 @router.delete("/{uid}/huella", response_model=schemas.PropietarioOut)
 def eliminar_huella(
     uid: str,
-    _: object = Depends(role_required(["admin"])),
+    current_user=Depends(role_required(["admin"])),
     db: Session = Depends(get_db),
 ):
-    propietario = crud.get_propietario_by_uid(db, uid)
+    propietario = crud.get_propietario_by_uid(
+        db, uid.upper(), conjunto_id=current_user.conjunto_id
+    )
     if not propietario:
         raise HTTPException(status_code=404, detail="Propietario no encontrado")
     propietario = crud.delete_huella(db, propietario)
@@ -222,7 +237,7 @@ def eliminar_huella(
 @router.post("/bulk", response_model=schemas.BulkImportResponse)
 def registrar_propietarios_bulk(
     items: list[schemas.PropietarioCreate],
-    _: object = Depends(role_required(["admin"])),
+    current_user=Depends(role_required(["admin"])),
     db: Session = Depends(get_db),
 ):
     if not items:
@@ -235,7 +250,12 @@ def registrar_propietarios_bulk(
 
     for idx, item in enumerate(items, start=1):
         try:
-            p = crud.create_propietario(db=db, payload=item, foto_url=_DEFAULT_BULK_FOTO)
+            p = crud.create_propietario(
+                db=db,
+                payload=item,
+                foto_url=_DEFAULT_BULK_FOTO,
+                conjunto_id=current_user.conjunto_id,
+            )
             creados.append(p)
         except IntegrityError:
             db.rollback()

@@ -1,4 +1,4 @@
-import { Fingerprint, List, LogOut, PencilLine, Shield, UserCircle2, UserPlus } from 'lucide-react'
+import { Building2, Fingerprint, List, LogOut, PencilLine, Shield, UserCircle2, UserPlus } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 const FINGERPRINT_LINK = { to: '/perfil/huella', label: 'Huella', icon: Fingerprint }
 
 const ROLE_META: Record<string, { label: string; dot: string }> = {
+  superadmin: { label: 'Super Admin', dot: 'bg-sky-400' },
   admin:     { label: 'Admin',     dot: 'bg-amber-400' },
   vigilante: { label: 'Vigilante', dot: 'bg-emerald-400' },
 }
@@ -14,6 +15,10 @@ const ADMIN_LINKS = [
   { to: '/admin/propietarios',           label: 'Listar',    icon: List },
   { to: '/admin/registrar',              label: 'Registrar', icon: UserPlus },
   { to: '/admin/propietarios?mode=edit', label: 'Editar',    icon: PencilLine },
+]
+
+const SUPERADMIN_LINKS = [
+  { to: '/superadmin/conjuntos', label: 'Conjuntos', icon: Building2 },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -63,6 +68,24 @@ export default function Layout({ children }: { children: ReactNode }) {
                 ))}
               </div>
             )}
+
+            {user?.role === 'superadmin' && (
+              <div className="hidden sm:flex items-center gap-0.5">
+                {SUPERADMIN_LINKS.map((link) => (
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    className={({ isActive }) =>
+                      `text-xs font-semibold px-3.5 py-2 rounded-xl transition-all duration-200 ${
+                        isActive
+                          ? 'bg-black/22 text-white shadow-sm'
+                          : 'text-white/60 hover:text-white hover:bg-black'
+                      }`
+                    }
+                  >{link.label}</NavLink>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right */}
@@ -82,17 +105,19 @@ export default function Layout({ children }: { children: ReactNode }) {
                   )}
                 </div>
 
-                <NavLink
-                  to={FINGERPRINT_LINK.to}
-                  title="Registrar huella"
-                  className={({ isActive }) =>
-                    `w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                      isActive ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
-                    }`
-                  }
-                >
-                  <Fingerprint className="w-4 h-4" />
-                </NavLink>
+                {user.role !== 'superadmin' && (
+                  <NavLink
+                    to={FINGERPRINT_LINK.to}
+                    title="Registrar huella"
+                    className={({ isActive }) =>
+                      `w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                        isActive ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
+                      }`
+                    }
+                  >
+                    <Fingerprint className="w-4 h-4" />
+                  </NavLink>
+                )}
               </>
             )}
 
@@ -121,6 +146,22 @@ export default function Layout({ children }: { children: ReactNode }) {
                     (link.label === 'Editar' ? isEditMode : isActive)
                       ? 'bg-white/22 text-white'
                       : 'text-white/55 hover:text-white hover:bg-white/10'
+                  }`
+                }
+              >{link.label}</NavLink>
+            ))}
+          </div>
+        )}
+
+        {user?.role === 'superadmin' && (
+          <div className="sm:hidden border-t border-white/10 px-4 py-2 flex items-center gap-1.5 overflow-x-auto">
+            {SUPERADMIN_LINKS.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                className={({ isActive }) =>
+                  `whitespace-nowrap text-xs font-bold px-3 py-1.5 rounded-lg transition-colors duration-150 ${
+                    isActive ? 'bg-white/22 text-white' : 'text-white/55 hover:text-white hover:bg-white/10'
                   }`
                 }
               >{link.label}</NavLink>
@@ -202,6 +243,26 @@ export default function Layout({ children }: { children: ReactNode }) {
                 </NavLink>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {user?.role === 'superadmin' && (
+        <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 px-3 pb-4 pt-2
+                        bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent">
+          <div className="mx-auto max-w-sm rounded-[28px] bg-gradient-premium border border-white/15
+                          p-1.5 shadow-float backdrop-blur-xl">
+            <NavLink
+              to="/superadmin/conjuntos"
+              className={({ isActive }) =>
+                `flex items-center justify-center gap-2 rounded-[20px] py-3 text-xs font-bold tracking-wide transition-all duration-200 ${
+                  isActive ? 'bg-white text-brand-700 shadow-brand' : 'text-white/65 hover:text-white hover:bg-white/10'
+                }`
+              }
+            >
+              <Building2 className="h-4 w-4" />
+              <span>Conjuntos</span>
+            </NavLink>
           </div>
         </div>
       )}

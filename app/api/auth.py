@@ -71,7 +71,11 @@ def login_for_access_token(
 
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
-        data={"sub": user.username, "role": user.role},
+        data={
+            "sub": user.username,
+            "role": user.role,
+            "conjunto_id": str(user.conjunto_id) if user.conjunto_id else None,
+        },
         expires_delta=access_token_expires,
     )
     logger.info("Login exitoso usuario=%s role=%s", user.username, user.role)
@@ -202,7 +206,11 @@ def webauthn_assertion_verify(body: WebAuthnAssertionVerifyIn, db: Session = Dep
     user = db.query(User).filter_by(id=cred.user_id).first()
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
-        data={"sub": user.username, "role": user.role},
+        data={
+            "sub": user.username,
+            "role": user.role,
+            "conjunto_id": str(user.conjunto_id) if user.conjunto_id else None,
+        },
         expires_delta=access_token_expires,
     )
 
@@ -324,7 +332,11 @@ def webauthn_register_verify(body: WebAuthnRegisterVerifyIn, db: Session = Depen
     user = db.query(User).filter_by(username=username).first()
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
-        data={"sub": user.username, "role": user.role},
+        data={
+            "sub": user.username,
+            "role": user.role,
+            "conjunto_id": str(user.conjunto_id) if user.conjunto_id else None,
+        },
         expires_delta=access_token_expires,
     )
     return schemas.Token(access_token=access_token)
