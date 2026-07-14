@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
 import Login from './pages/Login'
 import RegisterFingerprint from './pages/RegisterFingerprint'
+import AdminMetricas from './pages/admin/AdminMetricas'
 import ListarPropietarios from './pages/admin/ListarPropietarios'
 import RegistrarPropietario from './pages/admin/RegistrarPropietario'
 import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard'
@@ -31,6 +32,14 @@ export default function App() {
 
           {/* Admin-only routes */}
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route
+              path="/admin/metricas"
+              element={
+                <Layout>
+                  <AdminMetricas />
+                </Layout>
+              }
+            />
             <Route
               path="/admin/registrar"
               element={

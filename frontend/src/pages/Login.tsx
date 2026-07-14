@@ -30,7 +30,7 @@ export default function Login() {
 
   const routeForRole = (role: string) => {
     if (role === 'superadmin') return '/superadmin/conjuntos'
-    if (role === 'admin') return '/admin/registrar'
+    if (role === 'admin') return '/admin/metricas'
     return '/vigilante/verificar'
   }
 

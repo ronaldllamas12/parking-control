@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import crud
-from app.api import acceso, auth, propietarios, superadmin
+from app.api import acceso, admin, auth, propietarios, superadmin
 from app.config import get_settings
 from app.database import SessionLocal
 from app.exceptions import register_exception_handlers
@@ -44,6 +44,7 @@ app.add_middleware(
 # ── ROUTERS CON PREFIJO GLOBAL ───────────────────────
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(superadmin.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
 app.include_router(propietarios.router, prefix="/api/v1")
 app.include_router(acceso.router, prefix="/api/v1")
 

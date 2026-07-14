@@ -1,4 +1,4 @@
-import { Building2, Fingerprint, List, LogOut, PencilLine, Shield, UserCircle2, UserPlus } from 'lucide-react'
+import { BarChart3, Building2, Fingerprint, List, LogOut, PencilLine, Shield, UserCircle2, UserPlus } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -12,6 +12,7 @@ const ROLE_META: Record<string, { label: string; dot: string }> = {
 }
 
 const ADMIN_LINKS = [
+  { to: '/admin/metricas',               label: 'Métricas', icon: BarChart3 },
   { to: '/admin/propietarios',           label: 'Listar',    icon: List },
   { to: '/admin/registrar',              label: 'Registrar', icon: UserPlus },
   { to: '/admin/propietarios?mode=edit', label: 'Editar',    icon: PencilLine },
@@ -181,7 +182,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                         bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent">
           <div className="mx-auto max-w-sm rounded-[28px] bg-gradient-premium border border-white/15
                           p-1.5 shadow-float backdrop-blur-xl">
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-5 gap-1">
               {ADMIN_LINKS.map((link) => {
                 const Icon = link.icon
                 const active =
