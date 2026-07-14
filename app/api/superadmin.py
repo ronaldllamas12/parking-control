@@ -86,6 +86,22 @@ def actualizar_conjunto(
     return conjunto
 
 
+@router.get(
+    "/conjuntos/{conjunto_id}/metricas",
+    response_model=schemas.ConjuntoMetricasOut,
+)
+def obtener_metricas_conjunto(
+    conjunto_id: UUID,
+    _current_user=Depends(role_required(["superadmin"])),
+    db: Session = Depends(get_db),
+):
+    conjunto = crud.get_conjunto_by_id(db, conjunto_id)
+    if not conjunto:
+        raise HTTPException(status_code=404, detail="Conjunto residencial no encontrado")
+
+    return crud.get_conjunto_metricas(db, conjunto)
+
+
 @router.post(
     "/conjuntos/{conjunto_id}/vigilantes",
     response_model=schemas.UserOut,

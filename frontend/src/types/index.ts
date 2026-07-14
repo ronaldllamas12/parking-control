@@ -48,6 +48,28 @@ export interface UserOut {
   conjunto_id?: string | null
 }
 
+export interface SuperAdminRecentAccess {
+  uid: string
+  nombre: string
+  torre: string
+  apartamento: string
+  vigilante_username?: string | null
+  verificado_en: string
+}
+
+export interface ConjuntoMetricas {
+  conjunto: ConjuntoResidencial
+  admins: number
+  vigilantes: number
+  propietarios: number
+  propietarios_con_acceso: number
+  propietarios_sin_acceso: number
+  huellas_registradas: number
+  accesos_totales: number
+  accesos_hoy: number
+  ultimos_accesos: SuperAdminRecentAccess[]
+}
+
 // ── Propietarios ──────────────────────────────────────────────────────────────
 export interface PropietarioOut {
   uid: string

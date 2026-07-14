@@ -1,9 +1,13 @@
 import type { AxiosError } from 'axios'
 import {
   AlertCircle,
+  BarChart3,
   Building2,
   CheckCircle2,
+  Clock,
   Edit2,
+  Fingerprint,
+  Home,
   KeyRound,
   LockKeyhole,
   Plus,
@@ -13,6 +17,7 @@ import {
   ShieldCheck,
   Trash2,
   UserPlus,
+  Users,
   X,
 } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
@@ -24,8 +29,9 @@ import {
   eliminarConjunto,
   listarConjuntos,
   listarUsuariosConjunto,
+  obtenerMetricasConjunto,
 } from '../../api/superadmin'
-import type { ApiErrorBody, ConjuntoResidencial, UserOut } from '../../types'
+import type { ApiErrorBody, ConjuntoMetricas, ConjuntoResidencial, UserOut } from '../../types'
 
 interface FormState {
   nombre: string
@@ -55,6 +61,8 @@ const initialPasswordForm = {
 
 export default function SuperAdminDashboard() {
   const [conjuntos, setConjuntos] = useState<ConjuntoResidencial[]>([])
+  const [selectedConjuntoId, setSelectedConjuntoId] = useState<string>('')
+  const [metricas, setMetricas] = useState<ConjuntoMetricas | null>(null)
   const [usuariosConjunto, setUsuariosConjunto] = useState<UserOut[]>([])
   const [form, setForm] = useState<FormState>(initialForm)
   const [vigilanteForm, setVigilanteForm] = useState(initialVigilanteForm)
@@ -62,6 +70,7 @@ export default function SuperAdminDashboard() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ nombre: '', direccion: '', activo: true })
   const [loading, setLoading] = useState(true)
+  const [loadingMetrics, setLoadingMetrics] = useState(false)
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savingVigilante, setSavingVigilante] = useState(false)
@@ -77,6 +86,7 @@ export default function SuperAdminDashboard() {
     try {
       const data = await listarConjuntos()
       setConjuntos(data)
+      setSelectedConjuntoId((prev) => prev || data[0]?.id || '')
       setVigilanteForm((prev) => ({
         ...prev,
         conjuntoId: prev.conjuntoId || data[0]?.id || '',
@@ -96,6 +106,34 @@ export default function SuperAdminDashboard() {
   useEffect(() => {
     loadConjuntos()
   }, [])
+
+  useEffect(() => {
+    if (!selectedConjuntoId) {
+      setMetricas(null)
+      return
+    }
+
+    let cancelled = false
+
+    const loadMetricas = async () => {
+      setLoadingMetrics(true)
+      try {
+        const data = await obtenerMetricasConjunto(selectedConjuntoId)
+        if (!cancelled) setMetricas(data)
+      } catch (err) {
+        if (cancelled) return
+        const axiosErr = err as AxiosError<ApiErrorBody>
+        setError(axiosErr.response?.data?.detail ?? 'No se pudieron cargar las métricas del conjunto')
+      } finally {
+        if (!cancelled) setLoadingMetrics(false)
+      }
+    }
+
+    loadMetricas()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedConjuntoId])
 
   useEffect(() => {
     if (!passwordForm.conjuntoId) {
@@ -177,6 +215,7 @@ export default function SuperAdminDashboard() {
         activo: editForm.activo,
       })
       setConjuntos((prev) => prev.map((item) => (item.id === id ? updated : item)))
+      setMetricas((prev) => (prev && prev.conjunto.id === id ? { ...prev, conjunto: updated } : prev))
       setSuccess(`Conjunto actualizado: ${updated.nombre}`)
       cancelEdit()
     } catch (err) {
@@ -196,6 +235,9 @@ export default function SuperAdminDashboard() {
         activo: !conjunto.activo,
       })
       setConjuntos((prev) => prev.map((item) => (item.id === conjunto.id ? updated : item)))
+      setMetricas((prev) =>
+        prev && prev.conjunto.id === conjunto.id ? { ...prev, conjunto: updated } : prev,
+      )
       setSuccess(`${updated.nombre} quedó ${updated.activo ? 'activo' : 'inactivo'}`)
     } catch (err) {
       const axiosErr = err as AxiosError<ApiErrorBody>
@@ -215,6 +257,10 @@ export default function SuperAdminDashboard() {
     try {
       await eliminarConjunto(conjunto.id)
       setConjuntos((prev) => prev.filter((item) => item.id !== conjunto.id))
+      setSelectedConjuntoId((prev) => {
+        if (prev !== conjunto.id) return prev
+        return conjuntos.find((item) => item.id !== conjunto.id)?.id ?? ''
+      })
       setVigilanteForm((prev) => {
         if (prev.conjuntoId !== conjunto.id) return prev
         const nextConjunto = conjuntos.find((item) => item.id !== conjunto.id)
@@ -259,6 +305,7 @@ export default function SuperAdminDashboard() {
         },
       })
       setConjuntos((prev) => [created, ...prev])
+      setSelectedConjuntoId((prev) => prev || created.id)
       setVigilanteForm((prev) => ({
         ...prev,
         conjuntoId: prev.conjuntoId || created.id,
@@ -309,6 +356,11 @@ export default function SuperAdminDashboard() {
           userId: prev.userId || String(created.id),
         }))
       }
+      setMetricas((prev) =>
+        prev && prev.conjunto.id === vigilanteForm.conjuntoId
+          ? { ...prev, vigilantes: prev.vigilantes + 1 }
+          : prev,
+      )
       setVigilanteForm((prev) => ({
         conjuntoId: prev.conjuntoId,
         username: '',
@@ -389,6 +441,7 @@ export default function SuperAdminDashboard() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]">
+        <div className="space-y-6">
         <section className="rounded-2xl border border-surface-200 bg-white shadow-soft">
           <div className="flex items-center justify-between border-b border-surface-200 px-5 py-4">
             <div className="flex items-center gap-2">
@@ -408,8 +461,17 @@ export default function SuperAdminDashboard() {
             ) : (
               conjuntos.map((conjunto) => {
                 const isEditing = editingId === conjunto.id
+                const isSelected = selectedConjuntoId === conjunto.id
                 return (
-                  <article key={conjunto.id} className="px-5 py-4">
+                  <article
+                    key={conjunto.id}
+                    onClick={() => {
+                      if (!isEditing) setSelectedConjuntoId(conjunto.id)
+                    }}
+                    className={`px-5 py-4 transition-colors ${
+                      isSelected ? 'bg-brand-50/70' : 'hover:bg-surface-50'
+                    } ${isEditing ? '' : 'cursor-pointer'}`}
+                  >
                     {isEditing ? (
                       <div className="space-y-3">
                         <div className="grid gap-3 sm:grid-cols-2">
@@ -468,7 +530,7 @@ export default function SuperAdminDashboard() {
                           </p>
                           <p className="mt-1 font-mono text-[11px] text-slate-400">{conjunto.id}</p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2" onClick={(event) => event.stopPropagation()}>
                           <span
                             className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${
                               conjunto.activo
@@ -512,6 +574,93 @@ export default function SuperAdminDashboard() {
             )}
           </div>
         </section>
+
+        <section className="rounded-2xl border border-surface-200 bg-white shadow-soft">
+          <div className="flex items-center justify-between border-b border-surface-200 px-5 py-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-brand-600" />
+              <h2 className="text-base font-extrabold text-slate-800">Métricas del conjunto</h2>
+            </div>
+            {loadingMetrics && (
+              <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />
+            )}
+          </div>
+
+          {!selectedConjuntoId ? (
+            <div className="p-6 text-sm font-medium text-slate-500">
+              Selecciona un conjunto para ver sus métricas.
+            </div>
+          ) : !metricas ? (
+            <div className="p-6 text-sm font-medium text-slate-500">
+              Cargando métricas...
+            </div>
+          ) : (
+            <div className="space-y-5 p-5">
+              <div className="flex flex-col gap-1">
+                <h3 className="text-lg font-extrabold text-slate-900">{metricas.conjunto.nombre}</h3>
+                <p className="text-sm font-medium text-slate-500">
+                  {metricas.conjunto.direccion || 'Sin direccion registrada'}
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  { label: 'Admins', value: metricas.admins, icon: Users },
+                  { label: 'Vigilantes', value: metricas.vigilantes, icon: ShieldCheck },
+                  { label: 'Propietarios', value: metricas.propietarios, icon: Home },
+                  { label: 'Accesos hoy', value: metricas.accesos_hoy, icon: Clock },
+                  { label: 'Accesos totales', value: metricas.accesos_totales, icon: BarChart3 },
+                  { label: 'Con acceso', value: metricas.propietarios_con_acceso, icon: CheckCircle2 },
+                  { label: 'Sin acceso', value: metricas.propietarios_sin_acceso, icon: AlertCircle },
+                  { label: 'Huellas', value: metricas.huellas_registradas, icon: Fingerprint },
+                ].map(({ label, value, icon: Icon }) => (
+                  <div key={label} className="rounded-2xl border border-surface-200 bg-surface-50 p-4">
+                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white text-brand-600 shadow-sm">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <p className="text-2xl font-extrabold text-slate-900">{value}</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-2xl border border-surface-200">
+                <div className="border-b border-surface-200 px-4 py-3">
+                  <h3 className="text-sm font-extrabold text-slate-800">Últimos accesos</h3>
+                </div>
+                {metricas.ultimos_accesos.length === 0 ? (
+                  <div className="px-4 py-5 text-sm font-medium text-slate-500">
+                    Este conjunto todavía no tiene registros de acceso.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-surface-100">
+                    {metricas.ultimos_accesos.map((access) => (
+                      <div key={`${access.uid}-${access.verificado_en}`} className="px-4 py-3">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-slate-800">{access.nombre}</p>
+                            <p className="text-xs font-medium text-slate-500">
+                              Torre {access.torre} · Apto {access.apartamento} · UID {access.uid}
+                            </p>
+                          </div>
+                          <div className="text-left sm:text-right">
+                            <p className="text-xs font-semibold text-slate-500">
+                              {new Date(access.verificado_en).toLocaleString('es-CO')}
+                            </p>
+                            <p className="text-xs font-medium text-slate-400">
+                              {access.vigilante_username || 'Sin vigilante'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+        </div>
 
         <div className="space-y-6">
           <form onSubmit={handleSubmit} className="rounded-2xl border border-surface-200 bg-white p-5 shadow-soft">

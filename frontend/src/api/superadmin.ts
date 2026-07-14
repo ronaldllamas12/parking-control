@@ -1,6 +1,7 @@
 import type {
   ActualizarConjuntoPayload,
   ConjuntoResidencial,
+  ConjuntoMetricas,
   CrearConjuntoPayload,
   CrearVigilantePayload,
   UserOut,
@@ -29,6 +30,13 @@ export async function actualizarConjunto(
   const { data } = await apiClient.put<ConjuntoResidencial>(
     `/api/v1/superadmin/conjuntos/${id}`,
     payload,
+  )
+  return data
+}
+
+export async function obtenerMetricasConjunto(id: string): Promise<ConjuntoMetricas> {
+  const { data } = await apiClient.get<ConjuntoMetricas>(
+    `/api/v1/superadmin/conjuntos/${id}/metricas`,
   )
   return data
 }

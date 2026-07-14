@@ -95,6 +95,28 @@ class ConjuntoResidencialOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SuperAdminRecentAccessOut(BaseModel):
+    uid: str
+    nombre: str
+    torre: str
+    apartamento: str
+    vigilante_username: str | None = None
+    verificado_en: datetime
+
+
+class ConjuntoMetricasOut(BaseModel):
+    conjunto: ConjuntoResidencialOut
+    admins: int
+    vigilantes: int
+    propietarios: int
+    propietarios_con_acceso: int
+    propietarios_sin_acceso: int
+    huellas_registradas: int
+    accesos_totales: int
+    accesos_hoy: int
+    ultimos_accesos: list[SuperAdminRecentAccessOut]
+
+
 class PropietarioCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

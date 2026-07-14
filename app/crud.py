@@ -1,9 +1,11 @@
 import secrets
+from datetime import datetime, time, timezone
 from typing import Optional
 from uuid import UUID
 
 import bcrypt as _bcrypt
 from app import models, schemas
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 
@@ -171,6 +173,99 @@ def get_users_by_conjunto(
         )
         .order_by(models.User.role, models.User.username)
         .all()
+    )
+
+
+def get_conjunto_metricas(
+    db: Session,
+    conjunto: models.ConjuntoResidencial,
+) -> schemas.ConjuntoMetricasOut:
+    conjunto_id = conjunto.id
+    today_start = datetime.combine(
+        datetime.now(timezone.utc).date(),
+        time.min,
+        tzinfo=timezone.utc,
+    )
+
+    admins = (
+        db.query(func.count(models.User.id))
+        .filter(models.User.conjunto_id == conjunto_id, models.User.role == "admin")
+        .scalar()
+        or 0
+    )
+    vigilantes = (
+        db.query(func.count(models.User.id))
+        .filter(models.User.conjunto_id == conjunto_id, models.User.role == "vigilante")
+        .scalar()
+        or 0
+    )
+    propietarios = (
+        db.query(func.count(models.Propietario.id))
+        .filter(models.Propietario.conjunto_id == conjunto_id)
+        .scalar()
+        or 0
+    )
+    propietarios_con_acceso = (
+        db.query(func.count(models.Propietario.id))
+        .filter(
+            models.Propietario.conjunto_id == conjunto_id,
+            models.Propietario.acceso_habilitado.is_(True),
+        )
+        .scalar()
+        or 0
+    )
+    huellas_registradas = (
+        db.query(func.count(models.HuellaDigital.id))
+        .filter(models.HuellaDigital.conjunto_id == conjunto_id)
+        .scalar()
+        or 0
+    )
+    accesos_totales = (
+        db.query(func.count(models.HistorialAcceso.id))
+        .filter(models.HistorialAcceso.conjunto_id == conjunto_id)
+        .scalar()
+        or 0
+    )
+    accesos_hoy = (
+        db.query(func.count(models.HistorialAcceso.id))
+        .filter(
+            models.HistorialAcceso.conjunto_id == conjunto_id,
+            models.HistorialAcceso.fecha_hora >= today_start,
+        )
+        .scalar()
+        or 0
+    )
+
+    recientes = (
+        db.query(models.HistorialAcceso)
+        .join(models.HistorialAcceso.propietario)
+        .filter(models.HistorialAcceso.conjunto_id == conjunto_id)
+        .order_by(models.HistorialAcceso.fecha_hora.desc())
+        .limit(8)
+        .all()
+    )
+
+    return schemas.ConjuntoMetricasOut(
+        conjunto=conjunto,
+        admins=admins,
+        vigilantes=vigilantes,
+        propietarios=propietarios,
+        propietarios_con_acceso=propietarios_con_acceso,
+        propietarios_sin_acceso=max(propietarios - propietarios_con_acceso, 0),
+        huellas_registradas=huellas_registradas,
+        accesos_totales=accesos_totales,
+        accesos_hoy=accesos_hoy,
+        ultimos_accesos=[
+            schemas.SuperAdminRecentAccessOut(
+                uid=log.propietario.uid,
+                nombre=log.propietario.nombre,
+                torre=log.propietario.torre,
+                apartamento=log.propietario.apartamento,
+                vigilante_username=log.vigilante_username,
+                verificado_en=log.fecha_hora,
+            )
+            for log in recientes
+        ],
     )
 
 
