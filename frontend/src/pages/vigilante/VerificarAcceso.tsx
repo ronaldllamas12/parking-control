@@ -1,32 +1,31 @@
 ﻿import type { AxiosError } from 'axios'
 import {
-    Building2,
-    Camera,
-    CameraOff,
-    Clock,
-    CreditCard,
-    Fingerprint,
-    Home,
-    Phone,
-    QrCode,
-    RotateCcw,
-    Search,
-    ShieldCheck,
-    ShieldX,
-    Usb,
+  Building2,
+  Camera,
+  CameraOff,
+  Clock,
+  CreditCard,
+  Fingerprint,
+  Home,
+  Phone,
+  QrCode,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  ShieldX,
+  Usb,
 } from 'lucide-react'
 import QrScanner from 'qr-scanner'
 import { useEffect, useRef, useState } from 'react'
 import { listarHistorialReciente, listarHuellas, verificarAcceso } from '../../api/acceso'
 import type { ApiErrorBody, HistorialAccesoOut, VerificacionResponse } from '../../types'
 import {
-    FingerprintError,
-    FingerprintReader,
-    MATCH_THRESHOLD,
-    isWebSerialSupported,
+  FingerprintError,
+  FingerprintReader,
+  MATCH_THRESHOLD,
+  isWebSerialSupported,
 } from '../../utils/fingerprintSerial'
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('es-CO', {
     day: '2-digit',
@@ -50,7 +49,6 @@ function phoneHref(phone?: string | null): string | null {
   return cleaned ? `tel:${cleaned}` : null
 }
 
-// â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function InfoCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="bg-surface-50 border border-surface-200 rounded-2xl p-3 flex items-center gap-3">
@@ -65,7 +63,6 @@ function InfoCard({ icon, label, value }: { icon: React.ReactNode; label: string
   )
 }
 
-// â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function VerificarAcceso() {
   // ── QR / manual state ──────────────────────────────────────────────────────
   const [uid, setUid] = useState('')
@@ -558,7 +555,7 @@ export default function VerificarAcceso() {
                   </div>
                   <p className="font-extrabold text-xl">Acceso Denegado</p>
                   <p className="text-white/90 font-bold text-sm mt-2">
-                    NO SE ENCUENTRA PAZ Y SALVO CON LA ADMINISTRACIÓN
+                    NO SE REGISTRA  PAZ Y SALVO CON LA ADMINISTRACIÓN
                   </p>
                   <p className="text-white/75 text-sm mt-2 leading-relaxed">
                     Por favor acercarse a administración para resolver la situación.
@@ -630,7 +627,7 @@ export default function VerificarAcceso() {
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-slate-900 truncate">{item.nombre}</p>
-                    <p className="text-xs text-slate-500 truncate">T{item.torre} Â· Apto {item.apartamento}</p>
+                    <p className="text-xs text-slate-500 truncate">T{item.torre} - Apto {item.apartamento}</p>
                     {phoneHref(item.numero_contacto) ? (
                       <a
                         href={phoneHref(item.numero_contacto) ?? undefined}

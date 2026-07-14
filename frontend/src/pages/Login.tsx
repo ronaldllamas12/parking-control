@@ -85,8 +85,28 @@ export default function Login() {
                           bg-white rounded-3xl mb-5 shadow-brand-lg ring-2 ring-brand-400/50">
             <img src="/moto.png" alt="Logo" className="w-14 h-14 object-contain" />
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Control de Acceso</h1>
-          <p className="text-white/60 text-sm mt-1.5 font-medium">Parqueadero Residencial</p>
+          <h1 className="text-3xl font-extrabold text-black tracking-tight"
+          style={{
+                  textShadow: `
+                    -1px -1px 0 #fff,
+                     1px -1px 0 #fff,
+                    -1px  1px 0 #fff,
+                     1px  1px 0 #fff
+                  `,
+                }}>Control de Acceso</h1>
+          <p
+            className="text-white text-sm mt-3 font-medium"
+            style={{
+                textShadow: `
+                  -1px -1px 0 #0c0c0c,
+                   1px -1px 0 #0a0a0a,
+                  -1px  1px 0 #0a0a0a,
+                   1px  1px 0 #050505
+                `,
+              }}
+          >
+            Zonas Comunes
+          </p>
         </div>
 
         {/* Card */}
