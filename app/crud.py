@@ -5,7 +5,7 @@ from uuid import UUID
 
 import bcrypt as _bcrypt
 from app import models, schemas
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 
@@ -269,6 +269,75 @@ def get_conjunto_metricas(
     )
 
 
+def get_zonas_by_conjunto(db: Session, conjunto_id: UUID) -> list[models.ZonaAcceso]:
+    return (
+        db.query(models.ZonaAcceso)
+        .filter(models.ZonaAcceso.conjunto_id == conjunto_id)
+        .order_by(models.ZonaAcceso.nombre)
+        .all()
+    )
+
+
+def get_zona_by_id(
+    db: Session, zona_id: int, conjunto_id: UUID
+) -> Optional[models.ZonaAcceso]:
+    return (
+        db.query(models.ZonaAcceso)
+        .filter(
+            models.ZonaAcceso.id == zona_id,
+            models.ZonaAcceso.conjunto_id == conjunto_id,
+        )
+        .first()
+    )
+
+
+def get_or_create_parqueadero_zone(
+    db: Session, conjunto_id: UUID
+) -> models.ZonaAcceso:
+    zona = (
+        db.query(models.ZonaAcceso)
+        .filter(
+            models.ZonaAcceso.conjunto_id == conjunto_id,
+            func.lower(models.ZonaAcceso.nombre) == "parqueadero",
+        )
+        .first()
+    )
+    if zona:
+        return zona
+    zona = models.ZonaAcceso(conjunto_id=conjunto_id, nombre="Parqueadero")
+    db.add(zona)
+    db.commit()
+    db.refresh(zona)
+    return zona
+
+
+def create_zona(
+    db: Session, conjunto_id: UUID, payload: schemas.ZonaAccesoCreate
+) -> models.ZonaAcceso:
+    zona = models.ZonaAcceso(conjunto_id=conjunto_id, nombre=payload.nombre)
+    db.add(zona)
+    db.commit()
+    db.refresh(zona)
+    return zona
+
+
+def update_zona(
+    db: Session, zona: models.ZonaAcceso, payload: schemas.ZonaAccesoUpdate
+) -> models.ZonaAcceso:
+    if payload.nombre is not None:
+        zona.nombre = payload.nombre
+    if payload.activa is not None:
+        zona.activa = payload.activa
+    db.commit()
+    db.refresh(zona)
+    return zona
+
+
+def delete_zona(db: Session, zona: models.ZonaAcceso) -> None:
+    db.delete(zona)
+    db.commit()
+
+
 def get_tenant_user_by_id(db: Session, user_id: int) -> Optional[models.User]:
     return (
         db.query(models.User)
@@ -304,6 +373,9 @@ def delete_conjunto(db: Session, conjunto: models.ConjuntoResidencial) -> None:
     db.query(models.HistorialAcceso).filter(
         models.HistorialAcceso.conjunto_id == conjunto_id
     ).delete(synchronize_session=False)
+    db.query(models.ZonaAcceso).filter(
+        models.ZonaAcceso.conjunto_id == conjunto_id
+    ).delete(synchronize_session=False)
     db.query(models.HuellaDigital).filter(
         models.HuellaDigital.conjunto_id == conjunto_id
     ).delete(synchronize_session=False)
@@ -330,6 +402,19 @@ def get_propietario_by_uid(
     if conjunto_id:
         query = query.filter(models.Propietario.conjunto_id == conjunto_id)
     return query.first()
+
+
+def get_propietario_by_nfc(
+    db: Session, nfc_tag_id: str, conjunto_id: UUID
+) -> Optional[models.Propietario]:
+    return (
+        db.query(models.Propietario)
+        .filter(
+            models.Propietario.conjunto_id == conjunto_id,
+            models.Propietario.nfc_tag_id == nfc_tag_id,
+        )
+        .first()
+    )
 
 
 def create_propietario(
@@ -360,11 +445,15 @@ def create_propietario(
 
 
 def register_access_log(
-    db: Session, propietario: models.Propietario, vigilante_username: str | None = None
+    db: Session,
+    propietario: models.Propietario,
+    zona: models.ZonaAcceso,
+    vigilante_username: str | None = None,
 ) -> models.HistorialAcceso:
     log = models.HistorialAcceso(
         conjunto_id=propietario.conjunto_id,
         propietario_id=propietario.id,
+        zona_id=zona.id,
         propietario_uid=propietario.uid,
         vigilante_username=vigilante_username,
     )
@@ -420,11 +509,62 @@ def update_propietario(
         propietario.torre = payload.torre
     if payload.apartamento is not None:
         propietario.apartamento = payload.apartamento
+    if payload.estado_cuenta is not None:
+        propietario.estado_cuenta = payload.estado_cuenta
+    if payload.amenidades_suspendidas is not None:
+        propietario.amenidades_suspendidas = payload.amenidades_suspendidas
+    if payload.nfc_tag_id is not None:
+        propietario.nfc_tag_id = payload.nfc_tag_id or None
     if new_foto_url is not None:
         propietario.foto_url = new_foto_url
     db.commit()
     db.refresh(propietario)
     return propietario
+
+
+def bulk_update_estado_propietarios(
+    db: Session,
+    conjunto_id: UUID,
+    registros: list[schemas.PropietarioEstadoBulkItem],
+) -> schemas.BulkStatusResponse:
+    actualizados = 0
+    errores: list[schemas.BulkStatusError] = []
+
+    for idx, item in enumerate(registros, start=1):
+        params = {
+            "conjunto_id": str(conjunto_id),
+            "torre": item.torre,
+            "apartamento": item.apartamento,
+            "estado_cuenta": item.nuevo_estado,
+            "amenidades_suspendidas": item.amenidades_suspendidas,
+        }
+        result = db.execute(
+            text(
+                """
+                UPDATE propietarios
+                SET estado_cuenta = CAST(:estado_cuenta AS estado_cuenta_propietario),
+                    amenidades_suspendidas = COALESCE(:amenidades_suspendidas, amenidades_suspendidas)
+                WHERE conjunto_id = CAST(:conjunto_id AS uuid)
+                  AND torre = :torre
+                  AND apartamento = :apartamento
+                """
+            ),
+            params,
+        )
+        if result.rowcount == 0:
+            errores.append(
+                schemas.BulkStatusError(
+                    fila=idx,
+                    torre=item.torre,
+                    apartamento=item.apartamento,
+                    error="No existe propietario para torre/apartamento en este conjunto",
+                )
+            )
+        else:
+            actualizados += result.rowcount or 0
+
+    db.commit()
+    return schemas.BulkStatusResponse(actualizados=actualizados, errores=errores)
 
 
 def delete_propietario(db: Session, propietario: models.Propietario) -> None:

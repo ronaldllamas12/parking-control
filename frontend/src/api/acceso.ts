@@ -11,6 +11,19 @@ export async function verificarAcceso(uid: string): Promise<VerificacionResponse
   return data
 }
 
+export async function verificarAccesoZona(
+  identificador: string,
+  zonaId: number,
+  tipoIdentificador: 'qr' | 'nfc' = 'qr',
+): Promise<VerificacionResponse> {
+  const { data } = await apiClient.post<VerificacionResponse>('/api/v1/acceso/verificar', {
+    identificador,
+    tipo_identificador: tipoIdentificador,
+    zona_id: zonaId,
+  })
+  return data
+}
+
 /** GET /api/v1/acceso/historial-reciente */
 export async function listarHistorialReciente(): Promise<HistorialAccesoOut[]> {
   const { data } = await apiClient.get<HistorialAccesoOut[]>(

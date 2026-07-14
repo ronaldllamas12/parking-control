@@ -17,8 +17,9 @@ import {
 } from 'lucide-react'
 import QrScanner from 'qr-scanner'
 import { useEffect, useRef, useState } from 'react'
-import { listarHistorialReciente, listarHuellas, verificarAcceso } from '../../api/acceso'
-import type { ApiErrorBody, HistorialAccesoOut, VerificacionResponse } from '../../types'
+import { listarHistorialReciente, listarHuellas, verificarAccesoZona } from '../../api/acceso'
+import { listarZonasAcceso } from '../../api/zonas'
+import type { ApiErrorBody, HistorialAccesoOut, VerificacionResponse, ZonaAcceso } from '../../types'
 import {
   FingerprintError,
   FingerprintReader,
@@ -75,6 +76,9 @@ export default function VerificarAcceso() {
   const [deniedPazYSalvo, setDeniedPazYSalvo] = useState(false)
   const [historial, setHistorial] = useState<HistorialAccesoOut[]>([])
   const [historialError, setHistorialError] = useState<string | null>(null)
+  const [zonas, setZonas] = useState<ZonaAcceso[]>([])
+  const [zonaId, setZonaId] = useState<number | ''>('')
+  const selectedZona = zonas.find((zona) => zona.id === zonaId)
 
   // ── Fingerprint state ──────────────────────────────────────────────────────
   type FpStatus = 'idle' | 'connecting' | 'scanning' | 'searching' | 'done' | 'error'
@@ -92,6 +96,7 @@ export default function VerificarAcceso() {
   useEffect(() => {
     inputRef.current?.focus()
     void loadHistorial()
+    void loadZonas()
   }, [])
 
   useEffect(() => {
@@ -106,6 +111,10 @@ export default function VerificarAcceso() {
 
   // ── Fingerprint scan ───────────────────────────────────────────────────────
   const startFingerprintScan = async () => {
+    if (!selectedZona) {
+      setDenied('Selecciona una zona de acceso antes de verificar.')
+      return
+    }
     setFpError(null)
     setFpProgress(0)
     setResult(null)
@@ -162,7 +171,7 @@ export default function VerificarAcceso() {
       // Use existing verificarAcceso — logs + checks paz y salvo
       setLoading(true)
       try {
-        const data = await verificarAcceso(match.uid)
+        const data = await verificarAccesoZona(match.uid, selectedZona.id, 'qr')
         setResult(data)
         setUid(match.uid)
         await loadHistorial()
@@ -211,7 +220,22 @@ export default function VerificarAcceso() {
     }
   }
 
+  const loadZonas = async () => {
+    try {
+      const data = await listarZonasAcceso()
+      const active = data.filter((zona) => zona.activa)
+      setZonas(active)
+      setZonaId((prev) => prev || active[0]?.id || '')
+    } catch {
+      setDenied('No se pudieron cargar las zonas de acceso.')
+    }
+  }
+
   const verifyUid = async (rawUid: string) => {
+    if (!selectedZona) {
+      setDenied('Selecciona una zona de acceso antes de verificar.')
+      return
+    }
     const trimmed = rawUid.trim()
     if (!trimmed) return
 
@@ -220,7 +244,7 @@ export default function VerificarAcceso() {
     setDenied(null)
     setDeniedPazYSalvo(false)
     try {
-      const data = await verificarAcceso(trimmed)
+      const data = await verificarAccesoZona(trimmed, selectedZona.id, 'qr')
       setResult(data)
       await loadHistorial()
     } catch (err) {
@@ -328,12 +352,31 @@ export default function VerificarAcceso() {
       {/* Page header */}
       <div className="page-header">
         <div className="flex items-center gap-3 mb-1">
-          <div className="w-9 h-9 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-brand">
+              <div className="w-9 h-9 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-brand">
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <h1 className="page-title">Verificar Acceso</h1>
         </div>
         <p className="page-subtitle pl-12">Escanea el QR, ingresa el ID manualmente, o usa el lector de huella.</p>
+      </div>
+
+      <div className="card-lg p-4 mb-5">
+        <label className="field-label">Zona de acceso en control</label>
+        <select
+          value={zonaId}
+          onChange={(event) => setZonaId(Number(event.target.value))}
+          className="field"
+        >
+          {zonas.length === 0 ? (
+            <option value="">No hay zonas activas</option>
+          ) : (
+            zonas.map((zona) => (
+              <option key={zona.id} value={zona.id}>
+                {zona.nombre}
+              </option>
+            ))
+          )}
+        </select>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">

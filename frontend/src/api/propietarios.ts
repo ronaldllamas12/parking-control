@@ -1,4 +1,11 @@
-import type { BulkImportResult, HuellaTemplate, PropietarioOut, PropietarioUpdate } from '../types'
+import type {
+  BulkImportResult,
+  BulkStatusItem,
+  BulkStatusResult,
+  HuellaTemplate,
+  PropietarioOut,
+  PropietarioUpdate,
+} from '../types'
 import apiClient from './axios'
 
 /**
@@ -64,6 +71,23 @@ export async function registrarPropietariosBulk(
   items: Array<{ nombre: string; numero_contacto: string; torre: string; apartamento: string }>,
 ): Promise<BulkImportResult> {
   const { data } = await apiClient.post<BulkImportResult>('/api/v1/propietarios/bulk', items)
+  return data
+}
+
+export async function actualizarEstadoBulk(items: BulkStatusItem[]): Promise<BulkStatusResult> {
+  const { data } = await apiClient.put<BulkStatusResult>('/api/v1/propietarios/bulk-status', {
+    registros: items,
+  })
+  return data
+}
+
+export async function importarEstadoCsv(file: File): Promise<BulkStatusResult> {
+  const form = new FormData()
+  form.append('archivo', file)
+  const { data } = await apiClient.post<BulkStatusResult>(
+    '/api/v1/propietarios/bulk-status-csv',
+    form,
+  )
   return data
 }
 

@@ -1,4 +1,7 @@
 import logging
+import csv
+import io
+import unicodedata
 from typing import Optional
 
 from app import crud, models, schemas
@@ -112,6 +115,104 @@ def listar_propietarios(
     db: Session = Depends(get_db),
 ):
     return crud.get_all_propietarios(db, conjunto_id=current_user.conjunto_id)
+
+
+@router.put("/bulk-status", response_model=schemas.BulkStatusResponse)
+def actualizar_estado_masivo(
+    payload: schemas.PropietarioEstadoBulkIn,
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    if not payload.registros:
+        raise HTTPException(status_code=400, detail="No se enviaron registros")
+    if len(payload.registros) > 2000:
+        raise HTTPException(status_code=400, detail="Máximo 2000 registros por operación")
+    return crud.bulk_update_estado_propietarios(
+        db, conjunto_id=current_user.conjunto_id, registros=payload.registros
+    )
+
+
+@router.post("/bulk-status-csv", response_model=schemas.BulkStatusResponse)
+async def importar_estado_csv(
+    archivo: UploadFile = File(...),
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    filename = archivo.filename.lower()
+    if not filename.endswith((".csv", ".tsv", ".txt")):
+        raise HTTPException(status_code=400, detail="El archivo debe ser CSV o TSV")
+
+    raw = await archivo.read()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="El CSV debe estar codificado en UTF-8") from exc
+
+    sample = text[:2048]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters="\t,;")
+    except csv.Error:
+        dialect = csv.excel_tab if "\t" in sample else csv.excel
+
+    def normalize_key(value: str) -> str:
+        normalized = unicodedata.normalize("NFD", value.strip().lower())
+        normalized = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+        return normalized.replace(" ", "_")
+
+    def normalize_estado(value: str) -> str:
+        normalized = normalize_key(value)
+        if normalized in {"al_dia", "aldia"}:
+            return "al_dia"
+        if normalized in {"en_mora", "enmora"}:
+            return "en_mora"
+        return normalized
+
+    reader = csv.DictReader(io.StringIO(text), dialect=dialect)
+    required = {"torre", "apartamento", "nuevo_estado"}
+    headers = {normalize_key(h) for h in (reader.fieldnames or [])}
+    if not required.issubset(headers):
+        raise HTTPException(
+            status_code=400,
+            detail='El CSV debe incluir las columnas "torre", "apartamento" y "nuevo_estado"',
+        )
+
+    registros: list[schemas.PropietarioEstadoBulkItem] = []
+    errores: list[schemas.BulkStatusError] = []
+    for idx, row in enumerate(reader, start=2):
+        normalized = {normalize_key(str(k)): str(v).strip() for k, v in row.items()}
+        try:
+            registros.append(
+                schemas.PropietarioEstadoBulkItem(
+                    torre=normalized.get("torre", ""),
+                    apartamento=normalized.get("apartamento", ""),
+                    nuevo_estado=normalize_estado(normalized.get("nuevo_estado", "")),
+                    amenidades_suspendidas=(
+                        normalized.get("amenidades_suspendidas", "").lower()
+                        in {"true", "1", "si", "sí", "yes"}
+                        if normalized.get("amenidades_suspendidas", "") != ""
+                        else None
+                    ),
+                )
+            )
+        except Exception as exc:
+            errores.append(
+                schemas.BulkStatusError(
+                    fila=idx,
+                    torre=normalized.get("torre", ""),
+                    apartamento=normalized.get("apartamento", ""),
+                    error=f"Fila inválida: {str(exc)[:120]}",
+                )
+            )
+
+    if not registros and not errores:
+        raise HTTPException(status_code=400, detail="El CSV no contiene registros")
+    result = crud.bulk_update_estado_propietarios(
+        db, conjunto_id=current_user.conjunto_id, registros=registros
+    )
+    return schemas.BulkStatusResponse(
+        actualizados=result.actualizados,
+        errores=[*errores, *result.errores],
+    )
 
 
 @router.put("/{uid}", response_model=schemas.PropietarioOut)

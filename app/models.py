@@ -26,6 +26,31 @@ class ConjuntoResidencial(Base):
 
     usuarios: Mapped[list["User"]] = relationship(back_populates="conjunto")
     propietarios: Mapped[list["Propietario"]] = relationship(back_populates="conjunto")
+    zonas_acceso: Mapped[list["ZonaAcceso"]] = relationship(back_populates="conjunto")
+
+
+class ZonaAcceso(Base):
+    __tablename__ = "zonas_acceso"
+    __table_args__ = (
+        UniqueConstraint("conjunto_id", "nombre", name="uq_zonas_acceso_conjunto_nombre"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    activa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    conjunto: Mapped[ConjuntoResidencial] = relationship(back_populates="zonas_acceso")
 
 
 class User(Base):
@@ -99,6 +124,13 @@ class Propietario(Base):
     apartamento: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
     foto_url: Mapped[str] = mapped_column(String(500), nullable=False)
     acceso_habilitado: Mapped[bool] = mapped_column(nullable=False, default=True, server_default="true")
+    estado_cuenta: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="al_dia", server_default="al_dia", index=True
+    )
+    amenidades_suspendidas: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false", index=True
+    )
+    nfc_tag_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     huella_registrada: Mapped[bool] = mapped_column(nullable=False, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -128,6 +160,9 @@ class HistorialAcceso(Base):
     propietario_id: Mapped[int] = mapped_column(
         ForeignKey("propietarios.id"), nullable=False, index=True
     )
+    zona_id: Mapped[int] = mapped_column(
+        ForeignKey("zonas_acceso.id"), nullable=False, index=True
+    )
     propietario_uid: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     vigilante_username: Mapped[str | None] = mapped_column(
         String(50), nullable=True, index=True
@@ -140,6 +175,7 @@ class HistorialAcceso(Base):
     )
 
     propietario: Mapped[Propietario] = relationship(back_populates="accesos")
+    zona: Mapped[ZonaAcceso] = relationship()
 
 
 class HuellaDigital(Base):

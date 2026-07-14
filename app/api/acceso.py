@@ -18,22 +18,81 @@ def verificar_acceso(
     current_user=Depends(role_required(["vigilante"])),
     db: Session = Depends(get_db),
 ):
-    propietario = crud.get_propietario_by_uid(
-        db, uid=uid.upper(), conjunto_id=current_user.conjunto_id
+    zona = crud.get_or_create_parqueadero_zone(db, current_user.conjunto_id)
+    return _verificar_identificador(
+        db=db,
+        identificador=uid,
+        tipo_identificador="qr",
+        zona=zona,
+        current_user=current_user,
     )
+
+
+@router.post("/verificar", response_model=schemas.VerificacionResponse)
+def verificar_acceso_zona(
+    payload: schemas.VerificacionAccesoIn,
+    current_user=Depends(role_required(["vigilante"])),
+    db: Session = Depends(get_db),
+):
+    zona = crud.get_zona_by_id(db, payload.zona_id, current_user.conjunto_id)
+    if not zona or not zona.activa:
+        raise AppException(status_code=404, detail="Zona de acceso no encontrada o inactiva")
+    return _verificar_identificador(
+        db=db,
+        identificador=payload.identificador,
+        tipo_identificador=payload.tipo_identificador,
+        zona=zona,
+        current_user=current_user,
+    )
+
+
+def _verificar_identificador(
+    db: Session,
+    identificador: str,
+    tipo_identificador: str,
+    zona,
+    current_user,
+) -> schemas.VerificacionResponse:
+    normalized = identificador.strip()
+    if tipo_identificador == "nfc":
+        propietario = crud.get_propietario_by_nfc(
+            db, nfc_tag_id=normalized, conjunto_id=current_user.conjunto_id
+        )
+    else:
+        normalized = normalized.upper()
+        propietario = crud.get_propietario_by_uid(
+            db, uid=normalized, conjunto_id=current_user.conjunto_id
+        )
     if not propietario:
-        logger.warning("Acceso denegado uid=%s motivo=no_encontrado", uid.upper())
+        logger.warning("Acceso denegado identificador=%s motivo=no_encontrado", normalized)
         raise AppException(status_code=404, detail="Propietario no encontrado")
 
     if not propietario.acceso_habilitado:
-        logger.warning("Acceso denegado uid=%s motivo=acceso_deshabilitado", uid.upper())
+        logger.warning("Acceso denegado uid=%s motivo=acceso_deshabilitado", propietario.uid)
         raise AppException(
             status_code=403,
             detail="NO SE ENCUENTRA PAZ Y SALVO CON LA ADMINISTRACIÓN. Por favor acercarse a administración para resolver la situación.",
         )
 
+    es_parqueadero = zona.nombre.strip().lower() == "parqueadero"
+    if not es_parqueadero and (
+        propietario.estado_cuenta == "en_mora" or propietario.amenidades_suspendidas
+    ):
+        motivo = (
+            "Estado de cuenta en mora"
+            if propietario.estado_cuenta == "en_mora"
+            else "Amenidades suspendidas por administración"
+        )
+        logger.warning(
+            "Acceso denegado uid=%s zona=%s motivo=%s",
+            propietario.uid,
+            zona.nombre,
+            motivo,
+        )
+        raise AppException(status_code=403, detail=f"Acceso Denegado: {motivo}")
+
     log = crud.register_access_log(
-        db, propietario, vigilante_username=current_user.username
+        db, propietario, zona=zona, vigilante_username=current_user.username
     )
     logger.info(
         "Acceso autorizado uid=%s torre=%s apartamento=%s",
@@ -49,6 +108,7 @@ def verificar_acceso(
         torre=propietario.torre,
         apartamento=propietario.apartamento,
         foto_url=propietario.foto_url,
+        zona=zona.nombre,
         verificado_en=log.fecha_hora or datetime.now(timezone.utc),
     )
 

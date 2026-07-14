@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 NombreStr = Annotated[
     str,
@@ -117,6 +117,27 @@ class ConjuntoMetricasOut(BaseModel):
     ultimos_accesos: list[SuperAdminRecentAccessOut]
 
 
+class ZonaAccesoCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    nombre: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=80)]
+
+
+class ZonaAccesoUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    nombre: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=80)] | None = None
+    activa: bool | None = None
+
+
+class ZonaAccesoOut(BaseModel):
+    id: int
+    nombre: str
+    activa: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PropietarioCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -133,6 +154,9 @@ class PropietarioUpdate(BaseModel):
     numero_contacto: NumeroContactoStr | None = None
     torre: TorreStr | None = None
     apartamento: ApartamentoStr | None = None
+    estado_cuenta: str | None = Field(default=None, pattern="^(al_dia|en_mora)$")
+    amenidades_suspendidas: bool | None = None
+    nfc_tag_id: str | None = None
 
 
 class PropietarioOut(BaseModel):
@@ -143,6 +167,9 @@ class PropietarioOut(BaseModel):
     apartamento: str
     foto_url: str | None = None
     acceso_habilitado: bool = True
+    estado_cuenta: str = "al_dia"
+    amenidades_suspendidas: bool = False
+    nfc_tag_id: str | None = None
     huella_registrada: bool = False
 
     model_config = ConfigDict(from_attributes=True)
@@ -155,7 +182,16 @@ class VerificacionResponse(BaseModel):
     torre: str
     apartamento: str
     foto_url: str
+    zona: str | None = None
     verificado_en: datetime
+
+
+class VerificacionAccesoIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    identificador: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    tipo_identificador: str = Field(default="qr", pattern="^(qr|nfc)$")
+    zona_id: int
 
 
 class HistorialAccesoOut(BaseModel):
@@ -171,6 +207,33 @@ class HistorialAccesoOut(BaseModel):
 class BulkImportResponse(BaseModel):
     creados: list[PropietarioOut]
     errores: list[str]
+
+
+class PropietarioEstadoBulkItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    torre: TorreStr
+    apartamento: ApartamentoStr
+    nuevo_estado: str = Field(pattern="^(al_dia|en_mora)$")
+    amenidades_suspendidas: bool | None = None
+
+
+class PropietarioEstadoBulkIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    registros: list[PropietarioEstadoBulkItem]
+
+
+class BulkStatusError(BaseModel):
+    fila: int
+    torre: str
+    apartamento: str
+    error: str
+
+
+class BulkStatusResponse(BaseModel):
+    actualizados: int
+    errores: list[BulkStatusError]
 
 
 class HuellaRegisterIn(BaseModel):

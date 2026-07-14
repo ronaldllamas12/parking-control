@@ -19,13 +19,15 @@ import {
     Users,
     X,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { read as xlsxRead, utils as xlsxUtils, writeFile as xlsxWriteFile } from 'xlsx'
 import {
     actualizarPropietario,
+    actualizarEstadoBulk,
     eliminarHuella,
     eliminarPropietario,
+    importarEstadoCsv,
     listarPropietarios,
     registrarHuella,
     registrarPropietariosBulk,
@@ -42,6 +44,27 @@ import { createOwnerQrDataUrl, qrFileName } from '../../utils/qrDownload'
 function avatarSvg(letter: string): string {
   const encoded = encodeURIComponent(letter.toUpperCase())
   return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" rx="16" fill="%232563eb"/><text x="48" y="62" font-size="42" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold">${encoded}</text></svg>`
+}
+
+const GENERAL_TEMPLATE_ROWS = [
+  ['nombre', 'numero contacto', 'torre', 'apartamento', 'nuevo estado', 'amenidades suspendidas'],
+  ['JUAN PEREZ GARCIA', '3001234567', '1', '101', 'al dia', 'no'],
+  ['MARIA LOPEZ TORRES', '3109876543', '2', '204', 'en mora', 'si'],
+]
+
+function downloadGeneralTemplate() {
+  const wb = xlsxUtils.book_new()
+  const ws = xlsxUtils.aoa_to_sheet(GENERAL_TEMPLATE_ROWS)
+  ws['!cols'] = [
+    { wch: 28 },
+    { wch: 18 },
+    { wch: 10 },
+    { wch: 14 },
+    { wch: 16 },
+    { wch: 24 },
+  ]
+  xlsxUtils.book_append_sheet(wb, ws, 'Plantilla General')
+  xlsxWriteFile(wb, 'plantilla_general_propietarios_estados.xlsx')
 }
 
 // ── RegisterFingerprintModal ──────────────────────────────────────────────────
@@ -273,18 +296,40 @@ function BulkImportModal({ onClose, onImported }: BulkImportModalProps) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const downloadTemplate = () => {
-    const wb = xlsxUtils.book_new()
-    const ws = xlsxUtils.aoa_to_sheet([
-      ['nombre', 'numero_contacto', 'torre', 'apartamento'],
-      ['JUAN PEREZ GARCIA', '3001234567', '1', '101'],
-      ['MARIA LOPEZ TORRES', '3109876543', '2', '204'],
-    ])
-    ws['!cols'] = [{ wch: 26 }, { wch: 18 }, { wch: 8 }, { wch: 12 }]
-    xlsxUtils.book_append_sheet(wb, ws, 'Propietarios')
-    xlsxWriteFile(wb, 'plantilla_propietarios.xlsx')
+    downloadGeneralTemplate()
   }
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const normalizeHeader = (value: string): string =>
+    value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '_')
+
+  const get = (row: Record<string, unknown>, key: string): string => {
+    const found = Object.entries(row).find(([k]) => normalizeHeader(k) === key)
+    return String(found?.[1] ?? '').trim()
+  }
+
+  const parseRows = (rawRows: Record<string, unknown>[]) => {
+    const parsed: ParsedRow[] = rawRows
+      .map((row) => ({
+        nombre: get(row, 'nombre').toUpperCase(),
+        numero_contacto: get(row, 'numero_contacto'),
+        torre: get(row, 'torre'),
+        apartamento: get(row, 'apartamento').toUpperCase(),
+      }))
+      .filter((r) => r.nombre || r.torre || r.apartamento)
+
+    if (parsed.length === 0) {
+      setParseError('El archivo no contiene datos. Asegúrate de usar la plantilla correcta.')
+      return
+    }
+    setRows(parsed)
+  }
+
+  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setFileName(file.name)
@@ -294,36 +339,35 @@ function BulkImportModal({ onClose, onImported }: BulkImportModalProps) {
     setRows([])
 
     const reader = new FileReader()
+    if (/\.(csv|tsv|txt)$/i.test(file.name)) {
+      reader.onload = (ev) => {
+        try {
+          const text = String(ev.target?.result ?? '')
+          const lines = text.split(/\r?\n/).filter((line) => line.trim())
+          const delimiter = lines[0]?.includes('\t') ? '\t' : ','
+          const headers = lines[0].split(delimiter).map((header) => header.trim().replace(/^"|"$/g, ''))
+          const rawRows = lines.slice(1).map((line) => {
+            const values = line.split(delimiter).map((value) => value.trim().replace(/^"|"$/g, ''))
+            return Object.fromEntries(headers.map((header, idx) => [header, values[idx] ?? '']))
+          })
+          parseRows(rawRows)
+        } catch {
+          setParseError('No se pudo leer el archivo. Verifica que use la plantilla general.')
+        }
+      }
+      reader.readAsText(file, 'utf-8')
+      return
+    }
+
     reader.onload = (ev) => {
       try {
         const data = new Uint8Array(ev.target!.result as ArrayBuffer)
         const wb = xlsxRead(data, { type: 'array' })
         const ws = wb.Sheets[wb.SheetNames[0]]
         const rawRows = xlsxUtils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
-
-        const get = (row: Record<string, unknown>, key: string): string => {
-          const found = Object.entries(row).find(
-            ([k]) => k.toLowerCase().replace(/\s+/g, '_') === key,
-          )
-          return String(found?.[1] ?? '').trim()
-        }
-
-        const parsed: ParsedRow[] = rawRows
-          .map((row) => ({
-            nombre: get(row, 'nombre').toUpperCase(),
-            numero_contacto: get(row, 'numero_contacto'),
-            torre: get(row, 'torre'),
-            apartamento: get(row, 'apartamento').toUpperCase(),
-          }))
-          .filter((r) => r.nombre || r.torre || r.apartamento)
-
-        if (parsed.length === 0) {
-          setParseError('El archivo no contiene datos. Asegúrate de usar la plantilla correcta.')
-          return
-        }
-        setRows(parsed)
+        parseRows(rawRows)
       } catch {
-        setParseError('No se pudo leer el archivo. Verifica que sea un Excel válido (.xlsx).')
+        setParseError('No se pudo leer el archivo. Verifica que sea un Excel o CSV válido.')
       }
     }
     reader.readAsArrayBuffer(file)
@@ -355,7 +399,7 @@ function BulkImportModal({ onClose, onImported }: BulkImportModalProps) {
         <div className="bg-gradient-premium px-5 py-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <FileSpreadsheet className="w-5 h-5 text-white" />
-            <h2 className="text-white font-bold text-base">Registro Masivo por Excel</h2>
+            <h2 className="text-white font-bold text-base">Registro Masivo con Plantilla General</h2>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
             <X className="w-4 h-4" />
@@ -371,10 +415,10 @@ function BulkImportModal({ onClose, onImported }: BulkImportModalProps) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-800">Paso 1 — Descargar plantilla</p>
-              <p className="text-xs text-slate-500 mt-0.5">Columnas: nombre · numero_contacto · torre · apartamento</p>
+              <p className="text-xs text-slate-500 mt-0.5">Columnas: nombre · numero contacto · torre · apartamento · nuevo estado · amenidades suspendidas</p>
             </div>
             <button type="button" onClick={downloadTemplate} className="btn-secondary text-xs px-3 py-2 flex-shrink-0">
-              <Download className="w-3.5 h-3.5" />Plantilla
+              <Download className="w-3.5 h-3.5" />Plantilla general
             </button>
           </div>
 
@@ -390,7 +434,7 @@ function BulkImportModal({ onClose, onImported }: BulkImportModalProps) {
             <button type="button" onClick={() => fileRef.current?.click()} className="btn-primary text-xs px-3 py-2 flex-shrink-0">
               <Upload className="w-3.5 h-3.5" />Seleccionar
             </button>
-            <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} />
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
           </div>
 
           {parseError && <p className="field-error">{parseError}</p>}
@@ -683,6 +727,9 @@ export default function ListarPropietarios() {
   const [downloadingQrUid, setDownloadingQrUid] = useState<string | null>(null)
   const [togglingUid, setTogglingUid] = useState<string | null>(null)
   const [showBulkImport, setShowBulkImport] = useState(false)
+  const [selectedUids, setSelectedUids] = useState<string[]>([])
+  const [bulkStatusLoading, setBulkStatusLoading] = useState(false)
+  const statusCsvRef = useRef<HTMLInputElement>(null)
   const [searchNombre, setSearchNombre] = useState('')
   const [searchTorre, setSearchTorre] = useState('')
   const [searchApto, setSearchApto] = useState('')
@@ -777,6 +824,80 @@ export default function ListarPropietarios() {
     setFpEditing(updated)   // keep modal open showing result
   }
 
+  const selectedPropietarios = propietarios.filter((p) => selectedUids.includes(p.uid))
+
+  const toggleSelected = (uid: string) => {
+    setSelectedUids((prev) =>
+      prev.includes(uid) ? prev.filter((item) => item !== uid) : [...prev, uid],
+    )
+  }
+
+  const updateSelectedStatus = async (nuevoEstado: 'al_dia' | 'en_mora') => {
+    if (selectedPropietarios.length === 0) return
+    setBulkStatusLoading(true)
+    setError(null)
+    try {
+      const result = await actualizarEstadoBulk(
+        selectedPropietarios.map((p) => ({
+          torre: p.torre,
+          apartamento: p.apartamento,
+          nuevo_estado: nuevoEstado,
+          amenidades_suspendidas: nuevoEstado === 'en_mora',
+        })),
+      )
+      setPropietarios((prev) =>
+        prev.map((p) =>
+          selectedUids.includes(p.uid)
+            ? { ...p, estado_cuenta: nuevoEstado, amenidades_suspendidas: nuevoEstado === 'en_mora' }
+            : p,
+        ),
+      )
+      setSelectedUids([])
+      if (result.errores.length > 0) {
+        setError(`${result.actualizados} actualizados. ${result.errores.length} registros no coincidieron.`)
+      }
+    } catch (err) {
+      const axiosErr = err as AxiosError<ApiErrorBody>
+      setError(axiosErr.response?.data?.detail ?? 'Error actualizando estados')
+    } finally {
+      setBulkStatusLoading(false)
+    }
+  }
+
+  const handleStatusCsv = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setBulkStatusLoading(true)
+    setError(null)
+    try {
+      let fileToUpload = file
+      if (/\.(xlsx|xls)$/i.test(file.name)) {
+        const buffer = await file.arrayBuffer()
+        const wb = xlsxRead(new Uint8Array(buffer), { type: 'array' })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const tsv = xlsxUtils.sheet_to_csv(ws, { FS: '\t', RS: '\n' })
+        fileToUpload = new File([tsv], 'plantilla_general_propietarios_estados.csv', {
+          type: 'text/csv',
+        })
+      }
+      const result = await importarEstadoCsv(fileToUpload)
+      await load()
+      if (result.errores.length > 0) {
+        setError(`${result.actualizados} actualizados. ${result.errores.length} filas con error.`)
+      }
+    } catch (err) {
+      const axiosErr = err as AxiosError<ApiErrorBody>
+      setError(axiosErr.response?.data?.detail ?? 'Error importando CSV')
+    } finally {
+      setBulkStatusLoading(false)
+      event.target.value = ''
+    }
+  }
+
+  const downloadStatusCsvTemplate = () => {
+    downloadGeneralTemplate()
+  }
+
   return (
     <div className="animate-fade-in">
 
@@ -809,8 +930,24 @@ export default function ListarPropietarios() {
               onClick={() => setShowBulkImport(true)}
               className="inline-flex items-center gap-1.5 rounded-2xl border border-white/25 bg-white/10 hover:bg-white/20 px-4 py-2.5 text-xs font-semibold text-white transition-all"
             >
-              <FileSpreadsheet className="w-4 h-4" />Importar Excel
+              <FileSpreadsheet className="w-4 h-4" />Importar Plantilla
             </button>
+            <button
+              onClick={() => statusCsvRef.current?.click()}
+              disabled={bulkStatusLoading}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-white/25 bg-white/10 hover:bg-white/20 px-4 py-2.5 text-xs font-semibold text-white transition-all disabled:opacity-60"
+              title='Excel con columnas: nombre, numero contacto, torre, apartamento, nuevo estado, amenidades suspendidas'
+            >
+              <Upload className="w-4 h-4" />Importar Estados
+            </button>
+            <button
+              onClick={downloadStatusCsvTemplate}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-white/25 bg-white/10 hover:bg-white/20 px-4 py-2.5 text-xs font-semibold text-white transition-all"
+              title="Descargar plantilla general Excel"
+            >
+              <Download className="w-4 h-4" />Plantilla General
+            </button>
+            <input ref={statusCsvRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(event) => { void handleStatusCsv(event) }} />
             <Link to="/admin/registrar" className="btn-primary px-4 py-2.5 text-xs">
               <Plus className="w-4 h-4" />Registrar
             </Link>
@@ -857,6 +994,31 @@ export default function ListarPropietarios() {
         </div>
       </div>
 
+      {selectedUids.length > 0 && (
+        <div className="card p-3 mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-bold text-slate-700">{selectedUids.length} propietario(s) seleccionado(s)</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => { void updateSelectedStatus('al_dia') }}
+              disabled={bulkStatusLoading}
+              className="btn-secondary px-4 py-2 text-xs"
+            >
+              Marcar al día
+            </button>
+            <button
+              onClick={() => { void updateSelectedStatus('en_mora') }}
+              disabled={bulkStatusLoading}
+              className="btn-cancel px-4 py-2 text-xs"
+            >
+              Marcar en mora
+            </button>
+            <button onClick={() => setSelectedUids([])} className="btn-cancel px-4 py-2 text-xs">
+              Limpiar selección
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Error */}
       {error && (
         <div className="flex items-center gap-2.5 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3 text-rose-700 text-sm mb-5">{error}</div>
@@ -890,6 +1052,13 @@ export default function ListarPropietarios() {
               key={p.uid}
               className={`card p-4 flex items-center gap-3 hover:-translate-y-0.5 hover:shadow-card-lg transition-all duration-200 ${!p.acceso_habilitado ? 'opacity-75 border-rose-200' : ''}`}
             >
+              <input
+                type="checkbox"
+                checked={selectedUids.includes(p.uid)}
+                onChange={() => toggleSelected(p.uid)}
+                className="h-4 w-4 flex-shrink-0 accent-brand-600"
+                aria-label={`Seleccionar ${p.nombre}`}
+              />
               <div className="relative flex-shrink-0">
                 <img
                   src={p.foto_url} alt={p.nombre}
@@ -914,6 +1083,18 @@ export default function ListarPropietarios() {
                   ) : (
                     <span className="badge bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
                       <ShieldX className="w-2.5 h-2.5" />Denegado
+                    </span>
+                  )}
+                  <span className={`badge border flex items-center gap-1 ${
+                    p.estado_cuenta === 'al_dia'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                  }`}>
+                    {p.estado_cuenta === 'al_dia' ? 'Al día' : 'En mora'}
+                  </span>
+                  {p.amenidades_suspendidas && (
+                    <span className="badge bg-rose-50 text-rose-700 border border-rose-200">
+                      Amenidades suspendidas
                     </span>
                   )}
                 </div>

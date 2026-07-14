@@ -79,6 +79,9 @@ export interface PropietarioOut {
   apartamento: string
   foto_url: string
   acceso_habilitado: boolean
+  estado_cuenta: 'al_dia' | 'en_mora'
+  amenidades_suspendidas: boolean
+  nfc_tag_id?: string | null
   huella_registrada: boolean
 }
 
@@ -87,6 +90,32 @@ export interface PropietarioUpdate {
   numero_contacto?: string
   torre?: string
   apartamento?: string
+  estado_cuenta?: 'al_dia' | 'en_mora'
+  amenidades_suspendidas?: boolean
+  nfc_tag_id?: string | null
+}
+
+export interface ZonaAcceso {
+  id: number
+  nombre: string
+  activa: boolean
+}
+
+export interface BulkStatusItem {
+  torre: string
+  apartamento: string
+  nuevo_estado: 'al_dia' | 'en_mora'
+  amenidades_suspendidas?: boolean | null
+}
+
+export interface BulkStatusResult {
+  actualizados: number
+  errores: Array<{
+    fila: number
+    torre: string
+    apartamento: string
+    error: string
+  }>
 }
 
 // ── Acceso ────────────────────────────────────────────────────────────────────
@@ -97,6 +126,7 @@ export interface VerificacionResponse {
   torre: string
   apartamento: string
   foto_url: string
+  zona?: string | null
   verificado_en: string // ISO 8601
 }
 
