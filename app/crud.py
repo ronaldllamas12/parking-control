@@ -92,6 +92,7 @@ def create_conjunto_with_initial_admin(
     conjunto = models.ConjuntoResidencial(
         nombre=payload.conjunto.nombre,
         direccion=payload.conjunto.direccion,
+        telegram_bot_token=payload.conjunto.telegram_bot_token,
     )
     db.add(conjunto)
     db.flush()
@@ -137,6 +138,8 @@ def update_conjunto(
         conjunto.direccion = payload.direccion
     if payload.activo is not None:
         conjunto.activo = payload.activo
+    if payload.telegram_bot_token is not None:
+        conjunto.telegram_bot_token = payload.telegram_bot_token or None
 
     db.commit()
     db.refresh(conjunto)
@@ -314,7 +317,11 @@ def get_or_create_parqueadero_zone(
 def create_zona(
     db: Session, conjunto_id: UUID, payload: schemas.ZonaAccesoCreate
 ) -> models.ZonaAcceso:
-    zona = models.ZonaAcceso(conjunto_id=conjunto_id, nombre=payload.nombre)
+    zona = models.ZonaAcceso(
+        conjunto_id=conjunto_id,
+        nombre=payload.nombre,
+        acceso_universal=payload.acceso_universal,
+    )
     db.add(zona)
     db.commit()
     db.refresh(zona)
@@ -328,6 +335,8 @@ def update_zona(
         zona.nombre = payload.nombre
     if payload.activa is not None:
         zona.activa = payload.activa
+    if payload.acceso_universal is not None:
+        zona.acceso_universal = payload.acceso_universal
     db.commit()
     db.refresh(zona)
     return zona
@@ -404,6 +413,19 @@ def get_propietario_by_uid(
     return query.first()
 
 
+def get_propietario_by_id(
+    db: Session, propietario_id: int, conjunto_id: UUID
+) -> Optional[models.Propietario]:
+    return (
+        db.query(models.Propietario)
+        .filter(
+            models.Propietario.id == propietario_id,
+            models.Propietario.conjunto_id == conjunto_id,
+        )
+        .first()
+    )
+
+
 def get_propietario_by_nfc(
     db: Session, nfc_tag_id: str, conjunto_id: UUID
 ) -> Optional[models.Propietario]:
@@ -449,6 +471,8 @@ def register_access_log(
     propietario: models.Propietario,
     zona: models.ZonaAcceso,
     vigilante_username: str | None = None,
+    estado_intento: str = "concedido",
+    motivo: str | None = None,
 ) -> models.HistorialAcceso:
     log = models.HistorialAcceso(
         conjunto_id=propietario.conjunto_id,
@@ -456,6 +480,8 @@ def register_access_log(
         zona_id=zona.id,
         propietario_uid=propietario.uid,
         vigilante_username=vigilante_username,
+        estado_intento=estado_intento,
+        motivo=motivo,
     )
     db.add(log)
     db.commit()
@@ -476,6 +502,22 @@ def get_recent_access_logs_by_vigilante(
             models.HistorialAcceso.vigilante_username == vigilante_username,
             models.HistorialAcceso.conjunto_id == conjunto_id,
         )
+        .order_by(models.HistorialAcceso.fecha_hora.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def get_access_logs_by_conjunto(
+    db: Session,
+    conjunto_id: UUID,
+    limit: int = 200,
+) -> list[models.HistorialAcceso]:
+    return (
+        db.query(models.HistorialAcceso)
+        .join(models.HistorialAcceso.propietario)
+        .join(models.HistorialAcceso.zona)
+        .filter(models.HistorialAcceso.conjunto_id == conjunto_id)
         .order_by(models.HistorialAcceso.fecha_hora.desc())
         .limit(limit)
         .all()
@@ -513,6 +555,8 @@ def update_propietario(
         propietario.estado_cuenta = payload.estado_cuenta
     if payload.amenidades_suspendidas is not None:
         propietario.amenidades_suspendidas = payload.amenidades_suspendidas
+    if payload.telegram_chat_id is not None:
+        propietario.telegram_chat_id = payload.telegram_chat_id or None
     if payload.nfc_tag_id is not None:
         propietario.nfc_tag_id = payload.nfc_tag_id or None
     if new_foto_url is not None:
@@ -576,6 +620,15 @@ def toggle_acceso_propietario(
     db: Session, propietario: models.Propietario
 ) -> models.Propietario:
     propietario.acceso_habilitado = not propietario.acceso_habilitado
+    db.commit()
+    db.refresh(propietario)
+    return propietario
+
+
+def update_amenidades_propietario(
+    db: Session, propietario: models.Propietario, amenidades_suspendidas: bool
+) -> models.Propietario:
+    propietario.amenidades_suspendidas = amenidades_suspendidas
     db.commit()
     db.refresh(propietario)
     return propietario

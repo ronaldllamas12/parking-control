@@ -15,6 +15,7 @@ export interface ConjuntoResidencial {
   id: string
   nombre: string
   direccion?: string | null
+  telegram_bot_token?: string | null
   activo: boolean
   created_at: string
 }
@@ -23,6 +24,7 @@ export interface CrearConjuntoPayload {
   conjunto: {
     nombre: string
     direccion?: string | null
+    telegram_bot_token?: string | null
   }
   admin: {
     username: string
@@ -33,6 +35,7 @@ export interface CrearConjuntoPayload {
 export interface ActualizarConjuntoPayload {
   nombre?: string
   direccion?: string | null
+  telegram_bot_token?: string | null
   activo?: boolean
 }
 
@@ -81,6 +84,7 @@ export interface PropietarioOut {
   acceso_habilitado: boolean
   estado_cuenta: 'al_dia' | 'en_mora'
   amenidades_suspendidas: boolean
+  telegram_chat_id?: string | null
   nfc_tag_id?: string | null
   huella_registrada: boolean
 }
@@ -92,6 +96,7 @@ export interface PropietarioUpdate {
   apartamento?: string
   estado_cuenta?: 'al_dia' | 'en_mora'
   amenidades_suspendidas?: boolean
+  telegram_chat_id?: string | null
   nfc_tag_id?: string | null
 }
 
@@ -99,6 +104,7 @@ export interface ZonaAcceso {
   id: number
   nombre: string
   activa: boolean
+  acceso_universal: boolean
 }
 
 export interface BulkStatusItem {
@@ -127,6 +133,8 @@ export interface VerificacionResponse {
   apartamento: string
   foto_url: string
   zona?: string | null
+  estado_intento: 'concedido' | 'denegado'
+  motivo?: string | null
   verificado_en: string // ISO 8601
 }
 
@@ -137,7 +145,25 @@ export interface HistorialAccesoOut {
   torre: string
   apartamento: string
   foto_url: string
+  zona?: string | null
+  estado_intento: 'concedido' | 'denegado'
+  motivo?: string | null
   verificado_en: string
+}
+
+export interface RegistroAccesoOut {
+  id: number
+  propietario_id: number
+  uid: string
+  nombre: string
+  torre: string
+  apartamento: string
+  zona_id: number
+  zona: string
+  estado_intento: 'concedido' | 'denegado'
+  motivo?: string | null
+  vigilante_username?: string | null
+  fecha_hora: string
 }
 
 // ── Bulk import ─────────────────────────────────────────────────────────────

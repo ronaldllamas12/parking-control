@@ -15,6 +15,7 @@ class ConjuntoResidencial(Base):
     )
     nombre: Mapped[str] = mapped_column(String(120), nullable=False, unique=True)
     direccion: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    telegram_bot_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     activo: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true", index=True
     )
@@ -44,6 +45,9 @@ class ZonaAcceso(Base):
     )
     nombre: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
     activa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    acceso_universal: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false", index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -130,6 +134,7 @@ class Propietario(Base):
     amenidades_suspendidas: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false", index=True
     )
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
     nfc_tag_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     huella_registrada: Mapped[bool] = mapped_column(nullable=False, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(
@@ -149,6 +154,12 @@ class Propietario(Base):
 
 class HistorialAcceso(Base):
     __tablename__ = "historial_accesos"
+    __table_args__ = (
+        CheckConstraint(
+            "estado_intento IN ('concedido', 'denegado')",
+            name="ck_historial_accesos_estado_intento",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     conjunto_id: Mapped[UUID] = mapped_column(
@@ -167,6 +178,10 @@ class HistorialAcceso(Base):
     vigilante_username: Mapped[str | None] = mapped_column(
         String(50), nullable=True, index=True
     )
+    estado_intento: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="concedido", server_default="concedido", index=True
+    )
+    motivo: Mapped[str | None] = mapped_column(String(255), nullable=True)
     fecha_hora: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

@@ -14,8 +14,9 @@ import {
 } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { obtenerMisMetricas } from '../../api/admin'
+import { listarRegistrosAcceso } from '../../api/registrosAcceso'
 import { actualizarZonaAcceso, crearZonaAcceso, eliminarZonaAcceso, listarZonasAcceso } from '../../api/zonas'
-import type { ApiErrorBody, ConjuntoMetricas, ZonaAcceso } from '../../types'
+import type { ApiErrorBody, ConjuntoMetricas, RegistroAccesoOut, ZonaAcceso } from '../../types'
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('es-CO', {
@@ -30,7 +31,9 @@ function formatDateTime(iso: string): string {
 export default function AdminMetricas() {
   const [metricas, setMetricas] = useState<ConjuntoMetricas | null>(null)
   const [zonas, setZonas] = useState<ZonaAcceso[]>([])
+  const [registros, setRegistros] = useState<RegistroAccesoOut[]>([])
   const [zonaNombre, setZonaNombre] = useState('')
+  const [zonaUniversal, setZonaUniversal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [savingZona, setSavingZona] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,8 +44,10 @@ export default function AdminMetricas() {
     try {
       const data = await obtenerMisMetricas()
       const zonasData = await listarZonasAcceso()
+      const registrosData = await listarRegistrosAcceso(100)
       setMetricas(data)
       setZonas(zonasData)
+      setRegistros(registrosData)
     } catch (err) {
       const axiosErr = err as AxiosError<ApiErrorBody>
       setError(axiosErr.response?.data?.detail ?? 'No se pudieron cargar las métricas')
@@ -65,9 +70,10 @@ export default function AdminMetricas() {
     setSavingZona(true)
     setError(null)
     try {
-      const created = await crearZonaAcceso(nombre)
+      const created = await crearZonaAcceso(nombre, zonaUniversal)
       setZonas((prev) => [...prev, created].sort((a, b) => a.nombre.localeCompare(b.nombre)))
       setZonaNombre('')
+      setZonaUniversal(false)
     } catch (err) {
       const axiosErr = err as AxiosError<ApiErrorBody>
       setError(axiosErr.response?.data?.detail ?? 'No se pudo crear la zona')
@@ -83,6 +89,16 @@ export default function AdminMetricas() {
     } catch (err) {
       const axiosErr = err as AxiosError<ApiErrorBody>
       setError(axiosErr.response?.data?.detail ?? 'No se pudo actualizar la zona')
+    }
+  }
+
+  const toggleAccesoUniversal = async (zona: ZonaAcceso) => {
+    try {
+      const updated = await actualizarZonaAcceso(zona.id, { acceso_universal: !zona.acceso_universal })
+      setZonas((prev) => prev.map((item) => (item.id === zona.id ? updated : item)))
+    } catch (err) {
+      const axiosErr = err as AxiosError<ApiErrorBody>
+      setError(axiosErr.response?.data?.detail ?? 'No se pudo actualizar el acceso universal')
     }
   }
 
@@ -161,6 +177,15 @@ export default function AdminMetricas() {
                 className="field flex-1"
                 placeholder="Nombre de zona"
               />
+              <label className="flex items-center gap-2 rounded-2xl border border-surface-200 px-3 py-2 text-xs font-bold text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={zonaUniversal}
+                  onChange={(event) => setZonaUniversal(event.target.checked)}
+                  className="h-4 w-4 accent-brand-600"
+                />
+                Universal
+              </label>
               <button type="submit" disabled={savingZona} className="btn-primary px-4">
                 <Plus className="h-4 w-4" />
                 Crear
@@ -175,9 +200,18 @@ export default function AdminMetricas() {
                   <div key={zona.id} className="flex items-center justify-between gap-3 px-4 py-3">
                     <div>
                       <p className="text-sm font-bold text-slate-800">{zona.nombre}</p>
-                      <p className="text-xs font-medium text-slate-400">{zona.activa ? 'Activa' : 'Inactiva'}</p>
+                      <p className="text-xs font-medium text-slate-400">
+                        {zona.activa ? 'Activa' : 'Inactiva'} · {zona.acceso_universal ? 'Acceso universal' : 'Valida mora y amenidades'}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { void toggleAccesoUniversal(zona) }}
+                        className={`rounded-xl px-3 py-2 text-xs font-bold ${zona.acceso_universal ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-500'}`}
+                      >
+                        {zona.acceso_universal ? 'Universal' : 'Restringida'}
+                      </button>
                       <button
                         type="button"
                         onClick={() => { void toggleZona(zona) }}
@@ -253,6 +287,60 @@ export default function AdminMetricas() {
                     </div>
                   </article>
                 ))}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-surface-200 bg-white shadow-soft">
+            <div className="border-b border-surface-200 px-5 py-4">
+              <h2 className="text-base font-extrabold text-slate-800">Historial detallado de intentos</h2>
+            </div>
+
+            {registros.length === 0 ? (
+              <div className="p-6 text-sm font-medium text-slate-500">
+                No hay intentos registrados.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface-50 text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Fecha</th>
+                      <th className="px-4 py-3 text-left">Residente</th>
+                      <th className="px-4 py-3 text-left">Zona</th>
+                      <th className="px-4 py-3 text-left">Estado</th>
+                      <th className="px-4 py-3 text-left">Motivo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-100">
+                    {registros.map((registro) => (
+                      <tr key={registro.id}>
+                        <td className="whitespace-nowrap px-4 py-3 text-xs font-medium text-slate-500">
+                          {formatDateTime(registro.fecha_hora)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-bold text-slate-800">{registro.nombre}</p>
+                          <p className="text-xs text-slate-500">
+                            Torre {registro.torre} · Apto {registro.apartamento}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">{registro.zona}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                            registro.estado_intento === 'concedido'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-rose-50 text-rose-700'
+                          }`}>
+                            {registro.estado_intento === 'concedido' ? 'Concedido' : 'Denegado'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-500">
+                          {registro.motivo || 'Sin motivo'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </section>

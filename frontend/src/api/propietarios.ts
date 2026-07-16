@@ -66,6 +66,26 @@ export async function toggleAccesoPropietario(uid: string): Promise<PropietarioO
   return data
 }
 
+/** PATCH /api/v1/propietarios/{uid}/amenidades */
+export async function actualizarAmenidadesPropietario(
+  uid: string,
+  amenidades_suspendidas: boolean,
+): Promise<PropietarioOut> {
+  const { data } = await apiClient.patch<PropietarioOut>(
+    `/api/v1/propietarios/${uid}/amenidades`,
+    { amenidades_suspendidas },
+  )
+  return data
+}
+
+/** GET /api/v1/propietarios/{uid}/paz-y-salvo */
+export async function descargarPazYSalvo(uid: string): Promise<Blob> {
+  const { data } = await apiClient.get(`/api/v1/propietarios/${uid}/paz-y-salvo`, {
+    responseType: 'blob',
+  })
+  return data
+}
+
 /** POST /api/v1/propietarios/bulk */
 export async function registrarPropietariosBulk(
   items: Array<{ nombre: string; numero_contacto: string; torre: string; apartamento: string }>,

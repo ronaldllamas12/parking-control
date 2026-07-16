@@ -36,6 +36,7 @@ import type { ApiErrorBody, ConjuntoMetricas, ConjuntoResidencial, UserOut } fro
 interface FormState {
   nombre: string
   direccion: string
+  telegramBotToken: string
   adminUsername: string
   adminPassword: string
 }
@@ -43,6 +44,7 @@ interface FormState {
 const initialForm: FormState = {
   nombre: '',
   direccion: '',
+  telegramBotToken: '',
   adminUsername: '',
   adminPassword: '',
 }
@@ -68,7 +70,12 @@ export default function SuperAdminDashboard() {
   const [vigilanteForm, setVigilanteForm] = useState(initialVigilanteForm)
   const [passwordForm, setPasswordForm] = useState(initialPasswordForm)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ nombre: '', direccion: '', activo: true })
+  const [editForm, setEditForm] = useState({
+    nombre: '',
+    direccion: '',
+    telegramBotToken: '',
+    activo: true,
+  })
   const [loading, setLoading] = useState(true)
   const [loadingMetrics, setLoadingMetrics] = useState(false)
   const [loadingUsers, setLoadingUsers] = useState(false)
@@ -189,13 +196,14 @@ export default function SuperAdminDashboard() {
     setEditForm({
       nombre: conjunto.nombre,
       direccion: conjunto.direccion ?? '',
+      telegramBotToken: conjunto.telegram_bot_token ?? '',
       activo: conjunto.activo,
     })
   }
 
   const cancelEdit = () => {
     setEditingId(null)
-    setEditForm({ nombre: '', direccion: '', activo: true })
+    setEditForm({ nombre: '', direccion: '', telegramBotToken: '', activo: true })
   }
 
   const handleUpdate = async (id: string) => {
@@ -212,6 +220,7 @@ export default function SuperAdminDashboard() {
       const updated = await actualizarConjunto(id, {
         nombre: editForm.nombre.trim(),
         direccion: editForm.direccion.trim() || null,
+        telegram_bot_token: editForm.telegramBotToken.trim(),
         activo: editForm.activo,
       })
       setConjuntos((prev) => prev.map((item) => (item.id === id ? updated : item)))
@@ -298,6 +307,7 @@ export default function SuperAdminDashboard() {
         conjunto: {
           nombre: form.nombre.trim(),
           direccion: form.direccion.trim() || null,
+          telegram_bot_token: form.telegramBotToken.trim() || null,
         },
         admin: {
           username: form.adminUsername.trim(),
@@ -492,6 +502,15 @@ export default function SuperAdminDashboard() {
                             />
                           </div>
                         </div>
+                        <div>
+                          <label className="field-label">Token bot Telegram</label>
+                          <input
+                            value={editForm.telegramBotToken}
+                            onChange={(event) => setEditForm((prev) => ({ ...prev, telegramBotToken: event.target.value }))}
+                            className="field font-mono text-xs"
+                            placeholder="123456789:AA..."
+                          />
+                        </div>
                         <label className="flex w-fit items-center gap-2 rounded-xl border border-surface-200 px-3 py-2 text-xs font-bold text-slate-600">
                           <input
                             type="checkbox"
@@ -527,6 +546,9 @@ export default function SuperAdminDashboard() {
                           <h3 className="truncate text-sm font-extrabold text-slate-800">{conjunto.nombre}</h3>
                           <p className="truncate text-xs font-medium text-slate-500">
                             {conjunto.direccion || 'Sin direccion registrada'}
+                          </p>
+                          <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                            Telegram: {conjunto.telegram_bot_token ? 'Bot configurado' : 'Sin bot'}
                           </p>
                           <p className="mt-1 font-mono text-[11px] text-slate-400">{conjunto.id}</p>
                         </div>
@@ -692,6 +714,16 @@ export default function SuperAdminDashboard() {
                   className="field"
                   placeholder="Direccion del conjunto"
                   autoComplete="street-address"
+                />
+              </div>
+
+              <div>
+                <label className="field-label">Token bot Telegram</label>
+                <input
+                  value={form.telegramBotToken}
+                  onChange={(event) => updateField('telegramBotToken', event.target.value)}
+                  className="field font-mono text-xs"
+                  placeholder="123456789:AA..."
                 />
               </div>
 

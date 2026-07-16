@@ -24,6 +24,8 @@ import { Link, useLocation } from 'react-router-dom'
 import { read as xlsxRead, utils as xlsxUtils, writeFile as xlsxWriteFile } from 'xlsx'
 import {
     actualizarPropietario,
+    actualizarAmenidadesPropietario,
+    descargarPazYSalvo,
     actualizarEstadoBulk,
     eliminarHuella,
     eliminarPropietario,
@@ -725,7 +727,9 @@ export default function ListarPropietarios() {
   const [deleting, setDeleting] = useState<PropietarioOut | null>(null)
   const [fpEditing, setFpEditing] = useState<PropietarioOut | null>(null)
   const [downloadingQrUid, setDownloadingQrUid] = useState<string | null>(null)
+  const [downloadingPazUid, setDownloadingPazUid] = useState<string | null>(null)
   const [togglingUid, setTogglingUid] = useState<string | null>(null)
+  const [togglingAmenidadesUid, setTogglingAmenidadesUid] = useState<string | null>(null)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [selectedUids, setSelectedUids] = useState<string[]>([])
   const [bulkStatusLoading, setBulkStatusLoading] = useState(false)
@@ -802,6 +806,27 @@ export default function ListarPropietarios() {
     }
   }
 
+  const handleDownloadPazYSalvo = async (item: PropietarioOut) => {
+    setDownloadingPazUid(item.uid)
+    setError(null)
+    try {
+      const pdf = await descargarPazYSalvo(item.uid)
+      const url = URL.createObjectURL(pdf)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `paz-y-salvo-${item.torre}-${item.apartamento}.pdf`
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      const axiosErr = err as AxiosError<ApiErrorBody>
+      setError(axiosErr.response?.data?.detail ?? 'No se pudo descargar el paz y salvo')
+    } finally {
+      setDownloadingPazUid(null)
+    }
+  }
+
   const handleToggleAcceso = async (item: PropietarioOut) => {
     setTogglingUid(item.uid)
     try {
@@ -822,6 +847,23 @@ export default function ListarPropietarios() {
   const handleFpSaved = (updated: PropietarioOut) => {
     setPropietarios((prev) => prev.map((p) => (p.uid === updated.uid ? updated : p)))
     setFpEditing(updated)   // keep modal open showing result
+  }
+
+  const handleToggleAmenidades = async (item: PropietarioOut) => {
+    setTogglingAmenidadesUid(item.uid)
+    setError(null)
+    try {
+      const updated = await actualizarAmenidadesPropietario(
+        item.uid,
+        !item.amenidades_suspendidas,
+      )
+      setPropietarios((prev) => prev.map((p) => (p.uid === updated.uid ? updated : p)))
+    } catch (err) {
+      const axiosErr = err as AxiosError<ApiErrorBody>
+      setError(axiosErr.response?.data?.detail ?? 'Error al cambiar amenidades')
+    } finally {
+      setTogglingAmenidadesUid(null)
+    }
   }
 
   const selectedPropietarios = propietarios.filter((p) => selectedUids.includes(p.uid))
@@ -1134,6 +1176,32 @@ export default function ListarPropietarios() {
                   title={p.huella_registrada ? 'Huella registrada — clic para actualizar' : 'Registrar huella'}
                 >
                   <Fingerprint className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => { void handleToggleAmenidades(p) }}
+                  disabled={togglingAmenidadesUid === p.uid}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors disabled:opacity-60 ${
+                    p.amenidades_suspendidas
+                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-600'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-500'
+                  }`}
+                  aria-label={p.amenidades_suspendidas ? 'Habilitar amenidades' : 'Suspender amenidades'}
+                  title={p.amenidades_suspendidas ? 'Habilitar amenidades' : 'Suspender amenidades'}
+                >
+                  {togglingAmenidadesUid === p.uid
+                    ? <span className="w-3.5 h-3.5 border-2 border-rose-200 border-t-rose-600 rounded-full animate-spin" />
+                    : <ShieldX className="w-3.5 h-3.5" />}
+                </button>
+                <button
+                  onClick={() => { void handleDownloadPazYSalvo(p) }}
+                  disabled={downloadingPazUid === p.uid || p.estado_cuenta !== 'al_dia'}
+                  className="w-8 h-8 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-600 flex items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Descargar paz y salvo"
+                  title={p.estado_cuenta === 'al_dia' ? 'Descargar paz y salvo' : 'Paz y salvo disponible solo si está al día'}
+                >
+                  {downloadingPazUid === p.uid
+                    ? <span className="w-3.5 h-3.5 border-2 border-sky-200 border-t-sky-600 rounded-full animate-spin" />
+                    : <FileSpreadsheet className="w-3.5 h-3.5" />}
                 </button>
                 <button onClick={() => { void handleDownloadQr(p) }} disabled={downloadingQrUid === p.uid}
                   className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors disabled:opacity-60"

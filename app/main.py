@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import crud
-from app.api import acceso, admin, auth, propietarios, superadmin, zonas
+from app.api import acceso, admin, auth, propietarios, registros_acceso, superadmin, zonas
 from app.config import get_settings
 from app.database import SessionLocal
 from app.exceptions import register_exception_handlers
@@ -47,6 +47,7 @@ app.include_router(superadmin.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(zonas.router, prefix="/api/v1")
 app.include_router(propietarios.router, prefix="/api/v1")
+app.include_router(registros_acceso.router, prefix="/api/v1")
 app.include_router(acceso.router, prefix="/api/v1")
 
 

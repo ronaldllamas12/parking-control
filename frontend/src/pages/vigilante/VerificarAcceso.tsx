@@ -178,7 +178,7 @@ export default function VerificarAcceso() {
       } catch (err) {
         const axiosErr = err as AxiosError<ApiErrorBody>
         if (axiosErr.response?.status === 403) {
-          setDeniedPazYSalvo(true)
+          setDenied(axiosErr.response.data?.detail ?? 'Acceso denegado por administración')
         } else if (axiosErr.response?.status === 404) {
           setDenied('ID no encontrado en el sistema')
         } else {
@@ -250,7 +250,7 @@ export default function VerificarAcceso() {
     } catch (err) {
       const axiosErr = err as AxiosError<ApiErrorBody>
       if (axiosErr.response?.status === 403) {
-        setDeniedPazYSalvo(true)
+        setDenied(axiosErr.response.data?.detail ?? 'Acceso denegado por administración')
       } else if (axiosErr.response?.status === 404) {
         setDenied('ID no encontrado en el sistema')
       } else {

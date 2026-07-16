@@ -67,22 +67,33 @@ def _verificar_identificador(
         logger.warning("Acceso denegado identificador=%s motivo=no_encontrado", normalized)
         raise AppException(status_code=404, detail="Propietario no encontrado")
 
-    if not propietario.acceso_habilitado:
-        logger.warning("Acceso denegado uid=%s motivo=acceso_deshabilitado", propietario.uid)
-        raise AppException(
-            status_code=403,
-            detail="NO SE ENCUENTRA PAZ Y SALVO CON LA ADMINISTRACIÓN. Por favor acercarse a administración para resolver la situación.",
-        )
+    estado_intento = "concedido"
+    motivo = None
 
-    es_parqueadero = zona.nombre.strip().lower() == "parqueadero"
-    if not es_parqueadero and (
-        propietario.estado_cuenta == "en_mora" or propietario.amenidades_suspendidas
-    ):
-        motivo = (
-            "Estado de cuenta en mora"
-            if propietario.estado_cuenta == "en_mora"
-            else "Amenidades suspendidas por administración"
-        )
+    if not zona.acceso_universal:
+        if not propietario.acceso_habilitado:
+            estado_intento = "denegado"
+            motivo = (
+                "NO SE ENCUENTRA PAZ Y SALVO CON LA ADMINISTRACIÓN. "
+                "Por favor acercarse a administración para resolver la situación."
+            )
+        elif propietario.estado_cuenta == "en_mora":
+            estado_intento = "denegado"
+            motivo = "Estado de cuenta en mora"
+        elif propietario.amenidades_suspendidas:
+            estado_intento = "denegado"
+            motivo = "Amenidades suspendidas por administración"
+
+    log = crud.register_access_log(
+        db,
+        propietario,
+        zona=zona,
+        vigilante_username=current_user.username,
+        estado_intento=estado_intento,
+        motivo=motivo,
+    )
+
+    if estado_intento == "denegado":
         logger.warning(
             "Acceso denegado uid=%s zona=%s motivo=%s",
             propietario.uid,
@@ -90,16 +101,14 @@ def _verificar_identificador(
             motivo,
         )
         raise AppException(status_code=403, detail=f"Acceso Denegado: {motivo}")
-
-    log = crud.register_access_log(
-        db, propietario, zona=zona, vigilante_username=current_user.username
-    )
-    logger.info(
-        "Acceso autorizado uid=%s torre=%s apartamento=%s",
-        propietario.uid,
-        propietario.torre,
-        propietario.apartamento,
-    )
+    else:
+        logger.info(
+            "Acceso autorizado uid=%s torre=%s apartamento=%s zona=%s",
+            propietario.uid,
+            propietario.torre,
+            propietario.apartamento,
+            zona.nombre,
+        )
 
     return schemas.VerificacionResponse(
         uid=propietario.uid,
@@ -109,6 +118,8 @@ def _verificar_identificador(
         apartamento=propietario.apartamento,
         foto_url=propietario.foto_url,
         zona=zona.nombre,
+        estado_intento=estado_intento,
+        motivo=motivo,
         verificado_en=log.fecha_hora or datetime.now(timezone.utc),
     )
 
@@ -135,6 +146,9 @@ def historial_reciente(
             torre=log.propietario.torre,
             apartamento=log.propietario.apartamento,
             foto_url=log.propietario.foto_url,
+            zona=log.zona.nombre if log.zona else None,
+            estado_intento=log.estado_intento,
+            motivo=log.motivo,
             verificado_en=log.fecha_hora,
         )
         for log in logs

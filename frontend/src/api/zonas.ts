@@ -6,14 +6,20 @@ export async function listarZonasAcceso(): Promise<ZonaAcceso[]> {
   return data
 }
 
-export async function crearZonaAcceso(nombre: string): Promise<ZonaAcceso> {
-  const { data } = await apiClient.post<ZonaAcceso>('/api/v1/zonas-acceso/', { nombre })
+export async function crearZonaAcceso(
+  nombre: string,
+  acceso_universal = false,
+): Promise<ZonaAcceso> {
+  const { data } = await apiClient.post<ZonaAcceso>('/api/v1/zonas-acceso/', {
+    nombre,
+    acceso_universal,
+  })
   return data
 }
 
 export async function actualizarZonaAcceso(
   id: number,
-  payload: { nombre?: string; activa?: boolean },
+  payload: { nombre?: string; activa?: boolean; acceso_universal?: boolean },
 ): Promise<ZonaAcceso> {
   const { data } = await apiClient.put<ZonaAcceso>(`/api/v1/zonas-acceso/${id}`, payload)
   return data

@@ -10,6 +10,7 @@ from app.exceptions import AppException
 from app.security import role_required
 from app.services.cloudinary_service import upload_owner_photo
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -18,6 +19,45 @@ router = APIRouter(prefix="/propietarios", tags=["propietarios"])
 logger = logging.getLogger(__name__)
 
 _DEFAULT_BULK_FOTO = "https://placehold.co/200x200/2563eb/ffffff?text=P"
+
+
+def _get_propietario_scoped(
+    db: Session, propietario_id: str, conjunto_id
+) -> models.Propietario | None:
+    if propietario_id.isdigit():
+        return crud.get_propietario_by_id(db, int(propietario_id), conjunto_id=conjunto_id)
+    return crud.get_propietario_by_uid(
+        db, propietario_id.upper(), conjunto_id=conjunto_id
+    )
+
+
+def _build_paz_y_salvo_pdf(propietario: models.Propietario) -> bytes:
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Dependencia reportlab no instalada para generar PDF",
+        ) from exc
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+    pdf.setTitle(f"Paz y Salvo {propietario.uid}")
+    pdf.setFont("Helvetica-Bold", 18)
+    pdf.drawCentredString(width / 2, height - 90, "PAZ Y SALVO")
+    pdf.setFont("Helvetica", 11)
+    pdf.drawString(72, height - 150, f"Propietario: {propietario.nombre}")
+    pdf.drawString(72, height - 175, f"Torre: {propietario.torre}")
+    pdf.drawString(72, height - 200, f"Apartamento: {propietario.apartamento}")
+    pdf.drawString(72, height - 225, f"UID: {propietario.uid}")
+    pdf.drawString(72, height - 250, "Estado de cuenta: Al dia")
+    pdf.drawString(72, height - 300, "Se certifica que el residente se encuentra a paz y salvo.")
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+    return buffer.getvalue()
 
 
 @router.post("/", response_model=schemas.PropietarioOut)
@@ -212,6 +252,46 @@ async def importar_estado_csv(
     return schemas.BulkStatusResponse(
         actualizados=result.actualizados,
         errores=[*errores, *result.errores],
+    )
+
+
+@router.patch("/{propietario_id}/amenidades", response_model=schemas.PropietarioOut)
+def actualizar_amenidades(
+    propietario_id: str,
+    payload: schemas.AmenidadesUpdate,
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    propietario = _get_propietario_scoped(
+        db, propietario_id=propietario_id, conjunto_id=current_user.conjunto_id
+    )
+    if not propietario:
+        raise HTTPException(status_code=404, detail="Propietario no encontrado")
+    return crud.update_amenidades_propietario(
+        db, propietario, payload.amenidades_suspendidas
+    )
+
+
+@router.get("/{propietario_id}/paz-y-salvo")
+def generar_paz_y_salvo(
+    propietario_id: str,
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    propietario = _get_propietario_scoped(
+        db, propietario_id=propietario_id, conjunto_id=current_user.conjunto_id
+    )
+    if not propietario:
+        raise HTTPException(status_code=404, detail="Propietario no encontrado")
+    if propietario.estado_cuenta != "al_dia":
+        raise HTTPException(status_code=403, detail="Propietario en mora")
+
+    pdf_bytes = _build_paz_y_salvo_pdf(propietario)
+    filename = f"paz-y-salvo-{propietario.torre}-{propietario.apartamento}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

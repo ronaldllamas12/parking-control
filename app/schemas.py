@@ -44,6 +44,7 @@ class ConjuntoResidencialCreate(BaseModel):
 
     nombre: NombreStr
     direccion: str | None = None
+    telegram_bot_token: str | None = None
 
 
 class ConjuntoResidencialUpdate(BaseModel):
@@ -52,6 +53,7 @@ class ConjuntoResidencialUpdate(BaseModel):
     nombre: NombreStr | None = None
     direccion: str | None = None
     activo: bool | None = None
+    telegram_bot_token: str | None = None
 
 
 class AdminInicialCreate(BaseModel):
@@ -89,6 +91,7 @@ class ConjuntoResidencialOut(BaseModel):
     id: UUID
     nombre: str
     direccion: str | None = None
+    telegram_bot_token: str | None = None
     activo: bool
     created_at: datetime
 
@@ -121,6 +124,7 @@ class ZonaAccesoCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     nombre: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=80)]
+    acceso_universal: bool = False
 
 
 class ZonaAccesoUpdate(BaseModel):
@@ -128,12 +132,14 @@ class ZonaAccesoUpdate(BaseModel):
 
     nombre: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=80)] | None = None
     activa: bool | None = None
+    acceso_universal: bool | None = None
 
 
 class ZonaAccesoOut(BaseModel):
     id: int
     nombre: str
     activa: bool = True
+    acceso_universal: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -156,6 +162,7 @@ class PropietarioUpdate(BaseModel):
     apartamento: ApartamentoStr | None = None
     estado_cuenta: str | None = Field(default=None, pattern="^(al_dia|en_mora)$")
     amenidades_suspendidas: bool | None = None
+    telegram_chat_id: str | None = None
     nfc_tag_id: str | None = None
 
 
@@ -169,6 +176,7 @@ class PropietarioOut(BaseModel):
     acceso_habilitado: bool = True
     estado_cuenta: str = "al_dia"
     amenidades_suspendidas: bool = False
+    telegram_chat_id: str | None = None
     nfc_tag_id: str | None = None
     huella_registrada: bool = False
 
@@ -183,6 +191,8 @@ class VerificacionResponse(BaseModel):
     apartamento: str
     foto_url: str
     zona: str | None = None
+    estado_intento: str = "concedido"
+    motivo: str | None = None
     verificado_en: datetime
 
 
@@ -201,7 +211,31 @@ class HistorialAccesoOut(BaseModel):
     torre: str
     apartamento: str
     foto_url: str
+    zona: str | None = None
+    estado_intento: str = "concedido"
+    motivo: str | None = None
     verificado_en: datetime
+
+
+class AmenidadesUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    amenidades_suspendidas: bool
+
+
+class RegistroAccesoOut(BaseModel):
+    id: int
+    propietario_id: int
+    uid: str
+    nombre: str
+    torre: str
+    apartamento: str
+    zona_id: int
+    zona: str
+    estado_intento: str
+    motivo: str | None = None
+    vigilante_username: str | None = None
+    fecha_hora: datetime
 
 
 class BulkImportResponse(BaseModel):
