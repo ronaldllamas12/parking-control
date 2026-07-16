@@ -11,13 +11,14 @@ import {
   QrCode,
   RotateCcw,
   Search,
+  Send,
   ShieldCheck,
   ShieldX,
   Usb,
 } from 'lucide-react'
 import QrScanner from 'qr-scanner'
 import { useEffect, useRef, useState } from 'react'
-import { listarHistorialReciente, listarHuellas, verificarAccesoZona } from '../../api/acceso'
+import { listarHistorialReciente, listarHuellas, notificarPropietarioAcceso, verificarAccesoZona } from '../../api/acceso'
 import { listarZonasAcceso } from '../../api/zonas'
 import type { ApiErrorBody, HistorialAccesoOut, VerificacionResponse, ZonaAcceso } from '../../types'
 import {
@@ -74,6 +75,9 @@ export default function VerificarAcceso() {
   const [result, setResult] = useState<VerificacionResponse | null>(null)
   const [denied, setDenied] = useState<string | null>(null)
   const [deniedPazYSalvo, setDeniedPazYSalvo] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [notifyError, setNotifyError] = useState<string | null>(null)
+  const [notifyingUid, setNotifyingUid] = useState<string | null>(null)
   const [historial, setHistorial] = useState<HistorialAccesoOut[]>([])
   const [historialError, setHistorialError] = useState<string | null>(null)
   const [zonas, setZonas] = useState<ZonaAcceso[]>([])
@@ -119,6 +123,8 @@ export default function VerificarAcceso() {
     setFpProgress(0)
     setResult(null)
     setDenied(null)
+    setNotice(null)
+    setNotifyError(null)
     setDeniedPazYSalvo(false)
 
     try {
@@ -206,6 +212,8 @@ export default function VerificarAcceso() {
     setFpError(null)
     setResult(null)
     setDenied(null)
+    setNotice(null)
+    setNotifyError(null)
     setDeniedPazYSalvo(false)
   }
 
@@ -242,6 +250,8 @@ export default function VerificarAcceso() {
     setLoading(true)
     setResult(null)
     setDenied(null)
+    setNotice(null)
+    setNotifyError(null)
     setDeniedPazYSalvo(false)
     try {
       const data = await verificarAccesoZona(trimmed, selectedZona.id, 'qr')
@@ -342,8 +352,37 @@ export default function VerificarAcceso() {
     setUid('')
     setResult(null)
     setDenied(null)
+    setNotice(null)
+    setNotifyError(null)
     setDeniedPazYSalvo(false)
     setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
+  const handleNotify = async (
+    targetUid: string,
+    nombre?: string,
+    torre?: string,
+    apartamento?: string,
+  ) => {
+    const normalizedUid = targetUid.trim().toUpperCase()
+    if (!normalizedUid) return
+
+    setNotifyingUid(normalizedUid)
+    setNotice(null)
+    setNotifyError(null)
+    try {
+      const locationText = torre && apartamento ? ` Torre ${torre}, apartamento ${apartamento}.` : ''
+      await notificarPropietarioAcceso(
+        normalizedUid,
+        `Hola${nombre ? ` ${nombre}` : ''}. Vigilancia informa: por favor comuníquese o acérquese a la portería para revisar una novedad de acceso.${locationText}`,
+      )
+      setNotice(`Notificación enviada${nombre ? ` a ${nombre}` : ''}`)
+    } catch (err) {
+      const axiosErr = err as AxiosError<ApiErrorBody>
+      setNotifyError(axiosErr.response?.data?.detail ?? 'No se pudo enviar la notificación')
+    } finally {
+      setNotifyingUid(null)
+    }
   }
 
   return (
@@ -544,6 +583,17 @@ export default function VerificarAcceso() {
             </div>
           </form>
 
+          {notifyError && (
+            <div className="mb-4 flex items-center gap-2.5 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3 text-rose-700 text-sm">
+              {notifyError}
+            </div>
+          )}
+          {notice && (
+            <div className="mb-4 flex items-center gap-2.5 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 text-emerald-700 text-sm">
+              {notice}
+            </div>
+          )}
+
           {/* Access Granted */}
           {result && (
             <div className="animate-scale-in space-y-4">
@@ -579,6 +629,18 @@ export default function VerificarAcceso() {
                   <InfoCard icon={<Building2 className="w-4 h-4 text-brand-600" />} label="Torre" value={result.torre} />
                   <InfoCard icon={<Home className="w-4 h-4 text-brand-600" />} label="Apartamento" value={result.apartamento} />
                   <InfoCard icon={<Phone className="w-4 h-4 text-brand-600" />} label="Contacto" value={result.numero_contacto ?? 'Sin registrar'} />
+                  <button
+                    type="button"
+                    onClick={() => { void handleNotify(result.uid, result.nombre, result.torre, result.apartamento) }}
+                    disabled={notifyingUid === result.uid || !result.telegram_chat_id}
+                    className="col-span-2 btn-primary justify-center bg-teal-600 hover:bg-teal-700 disabled:opacity-50"
+                    title={result.telegram_chat_id ? 'Notificar por Telegram' : 'El propietario no tiene Chat ID Telegram configurado'}
+                  >
+                    {notifyingUid === result.uid
+                      ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      : <Send className="w-4 h-4" />}
+                    Notificar por Telegram
+                  </button>
                 </div>
               </div>
 
@@ -609,6 +671,19 @@ export default function VerificarAcceso() {
               <button onClick={handleReset} className="btn-secondary w-full">
                 <RotateCcw className="w-4 h-4" />Intentar con otro ID
               </button>
+              {uid.trim() && (
+                <button
+                  type="button"
+                  onClick={() => { void handleNotify(uid) }}
+                  disabled={notifyingUid === uid.trim().toUpperCase()}
+                  className="btn-primary w-full justify-center bg-teal-600 hover:bg-teal-700 disabled:opacity-50"
+                >
+                  {notifyingUid === uid.trim().toUpperCase()
+                    ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    : <Send className="w-4 h-4" />}
+                  Notificar propietario
+                </button>
+              )}
             </div>
           )}
 
@@ -628,6 +703,19 @@ export default function VerificarAcceso() {
               <button onClick={handleReset} className="btn-secondary w-full">
                 <RotateCcw className="w-4 h-4" />Intentar con otro ID
               </button>
+              {uid.trim() && (
+                <button
+                  type="button"
+                  onClick={() => { void handleNotify(uid) }}
+                  disabled={notifyingUid === uid.trim().toUpperCase()}
+                  className="btn-primary w-full justify-center bg-teal-600 hover:bg-teal-700 disabled:opacity-50"
+                >
+                  {notifyingUid === uid.trim().toUpperCase()
+                    ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    : <Send className="w-4 h-4" />}
+                  Notificar propietario
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -682,6 +770,18 @@ export default function VerificarAcceso() {
                       <p className="mt-1 text-xs text-slate-400">Sin contacto</p>
                     )}
                     <p className="text-[10px] text-slate-400 mt-0.5">{formatDateTime(item.verificado_en)}</p>
+                    <button
+                      type="button"
+                      onClick={() => { void handleNotify(item.uid, item.nombre, item.torre, item.apartamento) }}
+                      disabled={notifyingUid === item.uid || !item.telegram_chat_id}
+                      className="mt-2 inline-flex items-center gap-1 rounded-lg border border-teal-200 bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-700 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      title={item.telegram_chat_id ? 'Notificar por Telegram' : 'El propietario no tiene Chat ID Telegram configurado'}
+                    >
+                      {notifyingUid === item.uid
+                        ? <span className="h-3 w-3 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
+                        : <Send className="h-3 w-3" />}
+                      Telegram
+                    </button>
                   </div>
                 </div>
               ))}

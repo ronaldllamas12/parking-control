@@ -12,6 +12,7 @@ import {
     RefreshCw,
     Save,
     Search,
+    Send,
     ShieldCheck,
     ShieldX,
     Trash2,
@@ -31,6 +32,7 @@ import {
     eliminarPropietario,
     importarEstadoCsv,
     listarPropietarios,
+    notificarPropietario,
     registrarHuella,
     registrarPropietariosBulk,
     toggleAccesoPropietario,
@@ -557,6 +559,7 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
   const [numeroContacto, setNumeroContacto] = useState(item.numero_contacto ?? '')
   const [torre, setTorre] = useState(item.torre)
   const [apartamento, setApartamento] = useState(item.apartamento)
+  const [telegramChatId, setTelegramChatId] = useState(item.telegram_chat_id ?? '')
   const [foto, setFoto] = useState<File | null>(null)
   const [preview, setPreview] = useState<string>(item.foto_url)
   const [saving, setSaving] = useState(false)
@@ -577,7 +580,13 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
     try {
       const updated = await actualizarPropietario(
         item.uid,
-        { nombre, numero_contacto: numeroContacto, torre, apartamento },
+        {
+          nombre,
+          numero_contacto: numeroContacto,
+          torre,
+          apartamento,
+          telegram_chat_id: telegramChatId.trim() || null,
+        },
         foto ?? undefined,
       )
       onSaved(updated)
@@ -639,6 +648,11 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
           <div>
             <label className="field-label">Apartamento</label>
             <input value={apartamento} onChange={(e) => setApartamento(e.target.value.toUpperCase().replace(/\D/g, ''))} required inputMode="numeric" pattern="[0-9]*" className="field uppercase" />
+          </div>
+
+          <div>
+            <label className="field-label">Chat ID Telegram</label>
+            <input value={telegramChatId} onChange={(e) => setTelegramChatId(e.target.value.trim())} maxLength={80} className="field" placeholder="Ej: 123456789" />
           </div>
 
           {error && <p className="field-error">{error}</p>}
@@ -730,9 +744,11 @@ export default function ListarPropietarios() {
   const [downloadingPazUid, setDownloadingPazUid] = useState<string | null>(null)
   const [togglingUid, setTogglingUid] = useState<string | null>(null)
   const [togglingAmenidadesUid, setTogglingAmenidadesUid] = useState<string | null>(null)
+  const [notifyingUid, setNotifyingUid] = useState<string | null>(null)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [selectedUids, setSelectedUids] = useState<string[]>([])
   const [bulkStatusLoading, setBulkStatusLoading] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
   const statusCsvRef = useRef<HTMLInputElement>(null)
   const [searchNombre, setSearchNombre] = useState('')
   const [searchTorre, setSearchTorre] = useState('')
@@ -863,6 +879,24 @@ export default function ListarPropietarios() {
       setError(axiosErr.response?.data?.detail ?? 'Error al cambiar amenidades')
     } finally {
       setTogglingAmenidadesUid(null)
+    }
+  }
+
+  const handleNotify = async (item: PropietarioOut) => {
+    setNotifyingUid(item.uid)
+    setError(null)
+    setNotice(null)
+    try {
+      await notificarPropietario(
+        item.uid,
+        `Hola ${item.nombre}. Administración informa: por favor acérquese a administración para revisar su estado de acceso. Torre ${item.torre}, apartamento ${item.apartamento}.`,
+      )
+      setNotice(`Notificación enviada a ${item.nombre}`)
+    } catch (err) {
+      const axiosErr = err as AxiosError<ApiErrorBody>
+      setError(axiosErr.response?.data?.detail ?? 'No se pudo enviar la notificación')
+    } finally {
+      setNotifyingUid(null)
     }
   }
 
@@ -1065,6 +1099,9 @@ export default function ListarPropietarios() {
       {error && (
         <div className="flex items-center gap-2.5 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3 text-rose-700 text-sm mb-5">{error}</div>
       )}
+      {notice && (
+        <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 text-emerald-700 text-sm mb-5">{notice}</div>
+      )}
 
       {/* Empty */}
       {!loading && !error && propietarios.length === 0 && (
@@ -1191,6 +1228,17 @@ export default function ListarPropietarios() {
                   {togglingAmenidadesUid === p.uid
                     ? <span className="w-3.5 h-3.5 border-2 border-rose-200 border-t-rose-600 rounded-full animate-spin" />
                     : <ShieldX className="w-3.5 h-3.5" />}
+                </button>
+                <button
+                  onClick={() => { void handleNotify(p) }}
+                  disabled={notifyingUid === p.uid || !p.telegram_chat_id}
+                  className="w-8 h-8 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-600 flex items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Avisar por Telegram"
+                  title={p.telegram_chat_id ? 'Avisar por Telegram' : 'Agrega el Chat ID Telegram en editar'}
+                >
+                  {notifyingUid === p.uid
+                    ? <span className="w-3.5 h-3.5 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
+                    : <Send className="w-3.5 h-3.5" />}
                 </button>
                 <button
                   onClick={() => { void handleDownloadPazYSalvo(p) }}

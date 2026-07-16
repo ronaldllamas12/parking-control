@@ -190,6 +190,7 @@ class VerificacionResponse(BaseModel):
     torre: str
     apartamento: str
     foto_url: str
+    telegram_chat_id: str | None = None
     zona: str | None = None
     estado_intento: str = "concedido"
     motivo: str | None = None
@@ -211,6 +212,7 @@ class HistorialAccesoOut(BaseModel):
     torre: str
     apartamento: str
     foto_url: str
+    telegram_chat_id: str | None = None
     zona: str | None = None
     estado_intento: str = "concedido"
     motivo: str | None = None
@@ -221,6 +223,16 @@ class AmenidadesUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     amenidades_suspendidas: bool
+
+
+class TelegramNotificationIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mensaje: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
+class TelegramNotificationOut(BaseModel):
+    detail: str
 
 
 class RegistroAccesoOut(BaseModel):

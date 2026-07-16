@@ -37,3 +37,8 @@ export async function listarHuellas(): Promise<HuellaTemplate[]> {
   const { data } = await apiClient.get<HuellaTemplate[]>('/api/v1/acceso/huellas')
   return data
 }
+
+/** POST /api/v1/acceso/notificar/{uid} */
+export async function notificarPropietarioAcceso(uid: string, mensaje: string): Promise<void> {
+  await apiClient.post(`/api/v1/acceso/notificar/${uid.toUpperCase()}`, { mensaje })
+}

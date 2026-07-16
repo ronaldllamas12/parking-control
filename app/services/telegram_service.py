@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 async def enviar_notificacion_telegram(
     db: Session, propietario_id: int, mensaje: str
-) -> None:
+) -> bool:
     query = db.query(models.Propietario).filter(models.Propietario.id == propietario_id)
     current_conjunto_id = db.info.get("conjunto_id")
     if current_conjunto_id:
@@ -19,7 +19,7 @@ async def enviar_notificacion_telegram(
 
     propietario = query.first()
     if not propietario or not propietario.telegram_chat_id:
-        return
+        return False
 
     conjunto = (
         db.query(models.ConjuntoResidencial)
@@ -27,7 +27,7 @@ async def enviar_notificacion_telegram(
         .first()
     )
     if not conjunto or not conjunto.telegram_bot_token:
-        return
+        return False
 
     payload = json.dumps(
         {"chat_id": propietario.telegram_chat_id, "text": mensaje}
@@ -45,9 +45,11 @@ async def enviar_notificacion_telegram(
 
     try:
         await asyncio.to_thread(_send)
+        return True
     except Exception:
         logger.exception(
             "No se pudo enviar notificacion Telegram propietario_id=%s conjunto_id=%s",
             propietario.id,
             propietario.conjunto_id,
         )
+        return False

@@ -132,6 +132,7 @@ export interface VerificacionResponse {
   torre: string
   apartamento: string
   foto_url: string
+  telegram_chat_id?: string | null
   zona?: string | null
   estado_intento: 'concedido' | 'denegado'
   motivo?: string | null
@@ -145,6 +146,7 @@ export interface HistorialAccesoOut {
   torre: string
   apartamento: string
   foto_url: string
+  telegram_chat_id?: string | null
   zona?: string | null
   estado_intento: 'concedido' | 'denegado'
   motivo?: string | null

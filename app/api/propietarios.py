@@ -2,6 +2,7 @@ import logging
 import csv
 import io
 import unicodedata
+from datetime import datetime
 from typing import Optional
 
 from app import crud, models, schemas
@@ -9,6 +10,7 @@ from app.database import get_db
 from app.exceptions import AppException
 from app.security import role_required
 from app.services.cloudinary_service import upload_owner_photo
+from app.services.telegram_service import enviar_notificacion_telegram
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
@@ -33,7 +35,9 @@ def _get_propietario_scoped(
 
 def _build_paz_y_salvo_pdf(propietario: models.Propietario) -> bytes:
     try:
+        from reportlab.lib import colors
         from reportlab.lib.pagesizes import letter
+        from reportlab.lib.units import inch
         from reportlab.pdfgen import canvas
     except ImportError as exc:
         raise HTTPException(
@@ -41,19 +45,176 @@ def _build_paz_y_salvo_pdf(propietario: models.Propietario) -> bytes:
             detail="Dependencia reportlab no instalada para generar PDF",
         ) from exc
 
+    def draw_wrapped_text(
+        pdf: canvas.Canvas,
+        text: str,
+        x: float,
+        y: float,
+        max_width: float,
+        font_name: str,
+        font_size: int,
+        leading: int,
+    ) -> float:
+        words = text.split()
+        lines: list[str] = []
+        current = ""
+        for word in words:
+            candidate = f"{current} {word}".strip()
+            if pdf.stringWidth(candidate, font_name, font_size) <= max_width:
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+
+        pdf.setFont(font_name, font_size)
+        for line in lines:
+            pdf.drawString(x, y, line)
+            y -= leading
+        return y
+
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
+    margin = 0.72 * inch
+    navy = colors.HexColor("#0F172A")
+    slate = colors.HexColor("#475569")
+    muted = colors.HexColor("#94A3B8")
+    blue = colors.HexColor("#1D4ED8")
+    blue_dark = colors.HexColor("#1E3A8A")
+    blue_light = colors.HexColor("#EFF6FF")
+    emerald = colors.HexColor("#059669")
+    emerald_light = colors.HexColor("#ECFDF5")
+    border = colors.HexColor("#D8E2F0")
+    surface = colors.HexColor("#F8FAFC")
+    today = datetime.now().strftime("%d/%m/%Y")
+
     pdf.setTitle(f"Paz y Salvo {propietario.uid}")
-    pdf.setFont("Helvetica-Bold", 18)
-    pdf.drawCentredString(width / 2, height - 90, "PAZ Y SALVO")
-    pdf.setFont("Helvetica", 11)
-    pdf.drawString(72, height - 150, f"Propietario: {propietario.nombre}")
-    pdf.drawString(72, height - 175, f"Torre: {propietario.torre}")
-    pdf.drawString(72, height - 200, f"Apartamento: {propietario.apartamento}")
-    pdf.drawString(72, height - 225, f"UID: {propietario.uid}")
-    pdf.drawString(72, height - 250, "Estado de cuenta: Al dia")
-    pdf.drawString(72, height - 300, "Se certifica que el residente se encuentra a paz y salvo.")
+
+    # Header band
+    pdf.setFillColor(navy)
+    pdf.rect(0, height - 1.85 * inch, width, 1.85 * inch, fill=1, stroke=0)
+    pdf.setFillColor(blue_dark)
+    pdf.circle(width - 0.65 * inch, height - 0.2 * inch, 1.35 * inch, fill=1, stroke=0)
+    pdf.setFillColor(blue)
+    pdf.circle(width - 1.65 * inch, height - 1.65 * inch, 0.85 * inch, fill=1, stroke=0)
+
+    pdf.setFillColor(colors.white)
+    pdf.setFont("Helvetica-Bold", 26)
+    pdf.drawString(margin, height - 0.82 * inch, "PAZ Y SALVO")
+    pdf.setFont("Helvetica", 10)
+    pdf.setFillColor(colors.HexColor("#CBD5E1"))
+    pdf.drawString(margin, height - 1.12 * inch, "Certificado de estado administrativo del residente")
+    pdf.setFont("Helvetica-Bold", 9)
+    pdf.setFillColor(colors.white)
+    pdf.roundRect(width - margin - 1.72 * inch, height - 0.94 * inch, 1.72 * inch, 0.36 * inch, 9, fill=0, stroke=1)
+    pdf.drawCentredString(width - margin - 0.86 * inch, height - 0.82 * inch, f"UID {propietario.uid}")
+
+    # Main certificate card
+    card_x = margin
+    card_y = 1.18 * inch
+    card_w = width - 2 * margin
+    card_h = height - 3.42 * inch
+    pdf.setFillColor(colors.white)
+    pdf.setStrokeColor(border)
+    pdf.roundRect(card_x, card_y, card_w, card_h, 14, fill=1, stroke=1)
+
+    pdf.setFillColor(surface)
+    pdf.roundRect(card_x + 0.25 * inch, height - 2.72 * inch, card_w - 0.5 * inch, 0.92 * inch, 12, fill=1, stroke=0)
+    pdf.setFillColor(navy)
+    pdf.setFont("Helvetica-Bold", 15)
+    pdf.drawString(card_x + 0.48 * inch, height - 2.17 * inch, propietario.nombre)
+    pdf.setFont("Helvetica", 10)
+    pdf.setFillColor(slate)
+    pdf.drawString(
+        card_x + 0.48 * inch,
+        height - 2.42 * inch,
+        f"Torre {propietario.torre}   Apartamento {propietario.apartamento}   Contacto {propietario.numero_contacto or 'No registrado'}",
+    )
+
+    status_w = 1.42 * inch
+    pdf.setFillColor(emerald_light)
+    pdf.setStrokeColor(colors.HexColor("#A7F3D0"))
+    pdf.roundRect(card_x + card_w - status_w - 0.48 * inch, height - 2.38 * inch, status_w, 0.34 * inch, 8, fill=1, stroke=1)
+    pdf.setFillColor(emerald)
+    pdf.setFont("Helvetica-Bold", 9)
+    pdf.drawCentredString(card_x + card_w - 0.48 * inch - status_w / 2, height - 2.26 * inch, "AL DIA")
+
+    # Details grid
+    detail_y = height - 3.3 * inch
+    detail_items = [
+        ("Fecha de expedicion", today),
+        ("Estado de cuenta", "Al dia"),
+        ("Amenidades", "Sin suspension"),
+        ("Acceso", "Habilitado"),
+    ]
+    col_w = (card_w - 0.84 * inch) / 2
+    for idx, (label, value) in enumerate(detail_items):
+        col = idx % 2
+        row = idx // 2
+        x = card_x + 0.42 * inch + col * col_w
+        y = detail_y - row * 0.7 * inch
+        pdf.setFillColor(colors.white)
+        pdf.setStrokeColor(border)
+        pdf.roundRect(x, y - 0.42 * inch, col_w - 0.16 * inch, 0.5 * inch, 9, fill=1, stroke=1)
+        pdf.setFillColor(muted)
+        pdf.setFont("Helvetica-Bold", 7)
+        pdf.drawString(x + 0.16 * inch, y - 0.1 * inch, label.upper())
+        pdf.setFillColor(navy)
+        pdf.setFont("Helvetica-Bold", 10)
+        pdf.drawString(x + 0.16 * inch, y - 0.28 * inch, value)
+
+    statement_y = height - 5.05 * inch
+    pdf.setFillColor(navy)
+    pdf.setFont("Helvetica-Bold", 13)
+    pdf.drawString(card_x + 0.42 * inch, statement_y, "Certificacion")
+    pdf.setFillColor(slate)
+    statement = (
+        "La administracion certifica que el residente identificado en este documento "
+        "se encuentra a paz y salvo por concepto de obligaciones administrativas "
+        "registradas en el sistema a la fecha de expedicion."
+    )
+    draw_wrapped_text(
+        pdf,
+        statement,
+        card_x + 0.42 * inch,
+        statement_y - 0.34 * inch,
+        card_w - 0.84 * inch,
+        "Helvetica",
+        10,
+        15,
+    )
+
+    # Signature area
+    signature_y = card_y + 1.48 * inch
+    pdf.setStrokeColor(colors.HexColor("#CBD5E1"))
+    pdf.line(card_x + 0.42 * inch, signature_y, card_x + 2.95 * inch, signature_y)
+    pdf.setFillColor(navy)
+    pdf.setFont("Helvetica-Bold", 9)
+    pdf.drawString(card_x + 0.42 * inch, signature_y - 0.22 * inch, "Administracion")
+    pdf.setFillColor(muted)
+    pdf.setFont("Helvetica", 8)
+    pdf.drawString(card_x + 0.42 * inch, signature_y - 0.4 * inch, "Documento generado digitalmente")
+
+    pdf.setFillColor(blue_light)
+    pdf.setStrokeColor(colors.HexColor("#BFDBFE"))
+    pdf.roundRect(card_x + card_w - 2.45 * inch, signature_y - 0.45 * inch, 2.03 * inch, 0.62 * inch, 10, fill=1, stroke=1)
+    pdf.setFillColor(blue_dark)
+    pdf.setFont("Helvetica-Bold", 8)
+    pdf.drawCentredString(card_x + card_w - 1.435 * inch, signature_y - 0.13 * inch, "VALIDO PARA TRAMITES")
+    pdf.setFont("Helvetica", 8)
+    pdf.drawCentredString(card_x + card_w - 1.435 * inch, signature_y - 0.31 * inch, "internos del conjunto")
+
+    # Footer
+    pdf.setStrokeColor(border)
+    pdf.line(margin, 0.78 * inch, width - margin, 0.78 * inch)
+    pdf.setFillColor(muted)
+    pdf.setFont("Helvetica", 8)
+    pdf.drawString(margin, 0.52 * inch, "Este certificado es informativo y fue emitido desde el sistema de control de acceso.")
+    pdf.drawRightString(width - margin, 0.52 * inch, f"Generado: {today}")
+
     pdf.showPage()
     pdf.save()
     buffer.seek(0)
@@ -272,6 +433,37 @@ def actualizar_amenidades(
     )
 
 
+@router.post("/{propietario_id}/notificar", response_model=schemas.TelegramNotificationOut)
+async def notificar_propietario(
+    propietario_id: str,
+    payload: schemas.TelegramNotificationIn,
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    propietario = _get_propietario_scoped(
+        db, propietario_id=propietario_id, conjunto_id=current_user.conjunto_id
+    )
+    if not propietario:
+        raise HTTPException(status_code=404, detail="Propietario no encontrado")
+    if not propietario.telegram_chat_id:
+        raise HTTPException(
+            status_code=400,
+            detail="El propietario no tiene telegram_chat_id configurado",
+        )
+
+    conjunto = crud.get_conjunto_by_id(db, current_user.conjunto_id)
+    if not conjunto or not conjunto.telegram_bot_token:
+        raise HTTPException(
+            status_code=400,
+            detail="El conjunto no tiene token de bot Telegram configurado",
+        )
+
+    sent = await enviar_notificacion_telegram(db, propietario.id, payload.mensaje)
+    if not sent:
+        raise HTTPException(status_code=502, detail="No se pudo enviar el mensaje por Telegram")
+    return schemas.TelegramNotificationOut(detail="Notificación enviada")
+
+
 @router.get("/{propietario_id}/paz-y-salvo")
 def generar_paz_y_salvo(
     propietario_id: str,
@@ -302,6 +494,7 @@ def actualizar_propietario(
     numero_contacto: Optional[str] = Form(None),
     torre: Optional[str] = Form(None),
     apartamento: Optional[str] = Form(None),
+    telegram_chat_id: Optional[str] = Form(None),
     foto: Optional[UploadFile] = File(None),
     current_user=Depends(role_required(["admin"])),
     db: Session = Depends(get_db),
@@ -318,6 +511,7 @@ def actualizar_propietario(
             numero_contacto=numero_contacto,
             torre=torre,
             apartamento=apartamento,
+            telegram_chat_id=telegram_chat_id,
         )
     except ValidationError as exc:
         raise AppException(status_code=422, detail="Datos inválidos") from exc

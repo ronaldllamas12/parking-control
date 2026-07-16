@@ -5,7 +5,8 @@ from app import crud, schemas
 from app.database import get_db
 from app.exceptions import AppException
 from app.security import role_required
-from fastapi import APIRouter, Depends
+from app.services.telegram_service import enviar_notificacion_telegram
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/acceso", tags=["acceso"])
@@ -117,6 +118,7 @@ def _verificar_identificador(
         torre=propietario.torre,
         apartamento=propietario.apartamento,
         foto_url=propietario.foto_url,
+        telegram_chat_id=propietario.telegram_chat_id,
         zona=zona.nombre,
         estado_intento=estado_intento,
         motivo=motivo,
@@ -146,6 +148,7 @@ def historial_reciente(
             torre=log.propietario.torre,
             apartamento=log.propietario.apartamento,
             foto_url=log.propietario.foto_url,
+            telegram_chat_id=log.propietario.telegram_chat_id,
             zona=log.zona.nombre if log.zona else None,
             estado_intento=log.estado_intento,
             motivo=log.motivo,
@@ -166,3 +169,37 @@ def listar_huellas(
         schemas.HuellaTemplate(uid=h.propietario_uid, template_b64=h.template_b64)
         for h in huellas
     ]
+
+
+@router.post(
+    "/notificar/{uid}",
+    response_model=schemas.TelegramNotificationOut,
+)
+async def notificar_propietario(
+    uid: str,
+    payload: schemas.TelegramNotificationIn,
+    current_user=Depends(role_required(["vigilante"])),
+    db: Session = Depends(get_db),
+):
+    propietario = crud.get_propietario_by_uid(
+        db, uid.upper(), conjunto_id=current_user.conjunto_id
+    )
+    if not propietario:
+        raise HTTPException(status_code=404, detail="Propietario no encontrado")
+    if not propietario.telegram_chat_id:
+        raise HTTPException(
+            status_code=400,
+            detail="El propietario no tiene telegram_chat_id configurado",
+        )
+
+    conjunto = crud.get_conjunto_by_id(db, current_user.conjunto_id)
+    if not conjunto or not conjunto.telegram_bot_token:
+        raise HTTPException(
+            status_code=400,
+            detail="El conjunto no tiene token de bot Telegram configurado",
+        )
+
+    sent = await enviar_notificacion_telegram(db, propietario.id, payload.mensaje)
+    if not sent:
+        raise HTTPException(status_code=502, detail="No se pudo enviar el mensaje por Telegram")
+    return schemas.TelegramNotificationOut(detail="Notificación enviada")
