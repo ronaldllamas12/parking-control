@@ -80,10 +80,10 @@ export default function Login() {
       <div className="relative w-full max-w-md lg:max-w-lg animate-slide-up">
 
         {/* Brand hero */}
-        <div className="text-center mb-8 lg:mb-10">
-          <div className="inline-flex items-center justify-center w-28 h-28 lg:w-32 lg:h-32
-                          bg-white rounded-3xl mb-6 shadow-brand-lg ring-2 ring-brand-400/50">
-            <img src="/logo-login.png" alt="Logo" className="w-24 h-24 lg:w-28 lg:h-28 object-contain" />
+        <div className="text-center mb-2 lg:mb-2 mt-8">
+          <div className="inline-flex items-center justify-center w-20 h-20 lg:w-32 lg:h-32
+                          bg-white rounded-3xl mb-6 shadow-brand-lg ring-6 ring-brand-400/50">
+            <img src="/logo-login.png" alt="Logo" className="w-24 h-24 lg:w-30 lg:h-30 object-cover " />
           </div>
           <h1 className="text-4xl lg:text-5xl font-extrabold text-black tracking-tight"
           style={{
@@ -113,13 +113,13 @@ export default function Login() {
         <div className="glass px-8 py-8 lg:px-14 lg:py-14">
 
           {/* Card header */}
-          <div className="flex items-center gap-3 mb-7">
-            <div className="w-12 h-12 rounded-lg bg-white border border-surface-200 flex items-center justify-center overflow-hidden">
-              <img src="/logo-login.png" alt="Logo" className="w-10 h-10 object-contain" />
-            </div>
-            <span className="font-bold text-slate-800 text-base">Iniciar sesión</span>
+          <div className="flex items-center gap-3 mb-8 justify-center">
+           
+              <img src="/logo.svg" alt="Logo" className="w-16 h-15 object-cover" />
+            
           </div>
-
+          <div className= "flex items-center items-center justify-center"><span className="font-bold text-slate-800 text-base      ">Iniciar sesión</span>
+          </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
 
             {/* Username */}
@@ -200,7 +200,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-white/40 text-xs mt-6">
-          © {new Date().getFullYear()} Parqueadero Residencial · Todos los derechos reservados
+          © {new Date().getFullYear()} Gestion Integral Pro · Todos los derechos reservados
         </p>
       </div>
     </div>
