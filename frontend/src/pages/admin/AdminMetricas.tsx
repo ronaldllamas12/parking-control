@@ -1,20 +1,21 @@
 import type { AxiosError } from 'axios'
 import {
-  AlertCircle,
-  BarChart3,
-  CheckCircle2,
-  Clock,
-  Fingerprint,
-  Home,
-  Plus,
-  RefreshCw,
-  Trash2,
-  ShieldCheck,
-  Users,
+    AlertCircle,
+    BarChart3,
+    CheckCircle2,
+    Clock,
+    Fingerprint,
+    Home,
+    Plus,
+    RefreshCw,
+    ShieldCheck,
+    Trash2,
+    Users
 } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { obtenerMisMetricas } from '../../api/admin'
 import { listarRegistrosAcceso } from '../../api/registrosAcceso'
+import { type WebhookInfo } from '../../api/telegram'
 import { actualizarZonaAcceso, crearZonaAcceso, eliminarZonaAcceso, listarZonasAcceso } from '../../api/zonas'
 import type { ApiErrorBody, ConjuntoMetricas, RegistroAccesoOut, ZonaAcceso } from '../../types'
 
@@ -37,6 +38,13 @@ export default function AdminMetricas() {
   const [loading, setLoading] = useState(true)
   const [savingZona, setSavingZona] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // ── Telegram webhook state ──────────────────────────────────────────────────
+  const [webhookInfo, setWebhookInfo] = useState<WebhookInfo | null>(null)
+  const [webhookLoading, setWebhookLoading] = useState(false)
+  const [webhookBaseUrl, setWebhookBaseUrl] = useState('')
+  const [webhookSaving, setWebhookSaving] = useState(false)
+  const [webhookMsg, setWebhookMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   const loadMetricas = async () => {
     setLoading(true)

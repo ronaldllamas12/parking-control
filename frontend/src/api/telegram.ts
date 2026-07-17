@@ -1,10 +1,7 @@
 import type { PropietarioOut, TelegramLinkOut } from '../types'
 import apiClient from './axios'
 
-/** POST /api/v1/propietarios/{uid}/telegram-link
- *  Generates (or regenerates) a one-time Telegram deep-link for the propietario.
- *  The previous token is automatically invalidated.
- */
+/** POST /api/v1/propietarios/{uid}/telegram-link */
 export async function generarEnlaceTelegram(uid: string): Promise<TelegramLinkOut> {
   const { data } = await apiClient.post<TelegramLinkOut>(
     `/api/v1/propietarios/${uid}/telegram-link`,
@@ -12,18 +9,27 @@ export async function generarEnlaceTelegram(uid: string): Promise<TelegramLinkOu
   return data
 }
 
-/** GET /api/v1/propietarios/{uid}
- *  Fetch a single propietario — used for polling the linked status.
- */
+/** GET /api/v1/propietarios/{uid} — poll for linked status */
 export async function obtenerPropietario(uid: string): Promise<PropietarioOut> {
   const { data } = await apiClient.get<PropietarioOut>(`/api/v1/propietarios/${uid}`)
   return data
 }
 
-/** POST /api/v1/telegram/set-webhook
- *  Registers the webhook URL with Telegram for the current conjunto's bot.
- *  base_url — public root URL of the API, e.g. "https://my-api.onrender.com"
- */
+export interface WebhookInfo {
+  webhook_configurado: boolean
+  webhook_url: string | null
+  pending_updates: number
+  last_error: string | null
+  last_error_date: number | null
+}
+
+/** GET /api/v1/telegram/webhook-info */
+export async function obtenerWebhookInfo(): Promise<WebhookInfo> {
+  const { data } = await apiClient.get<WebhookInfo>('/api/v1/telegram/webhook-info')
+  return data
+}
+
+/** POST /api/v1/telegram/set-webhook */
 export async function configurarWebhook(
   base_url: string,
 ): Promise<{ ok: boolean; webhook_url: string }> {
