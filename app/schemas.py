@@ -162,7 +162,6 @@ class PropietarioUpdate(BaseModel):
     apartamento: ApartamentoStr | None = None
     estado_cuenta: str | None = Field(default=None, pattern="^(al_dia|en_mora)$")
     amenidades_suspendidas: bool | None = None
-    telegram_chat_id: str | None = None
     nfc_tag_id: str | None = None
 
 
@@ -177,10 +176,16 @@ class PropietarioOut(BaseModel):
     estado_cuenta: str = "al_dia"
     amenidades_suspendidas: bool = False
     telegram_chat_id: str | None = None
+    telegram_linked_at: datetime | None = None
     nfc_tag_id: str | None = None
     huella_registrada: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TelegramLinkOut(BaseModel):
+    link: str
+    bot_username: str
 
 
 class VerificacionResponse(BaseModel):
@@ -223,6 +228,12 @@ class AmenidadesUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     amenidades_suspendidas: bool
+
+
+class TelegramSetWebhookIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    base_url: Annotated[str, StringConstraints(strip_whitespace=True, min_length=10, max_length=500)]
 
 
 class TelegramNotificationIn(BaseModel):

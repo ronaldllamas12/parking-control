@@ -49,8 +49,6 @@ export async function actualizarPropietario(
   if (fields.torre !== undefined) form.append('torre', fields.torre.trim())
   if (fields.apartamento !== undefined)
     form.append('apartamento', fields.apartamento.toUpperCase())
-  if (fields.telegram_chat_id !== undefined)
-    form.append('telegram_chat_id', fields.telegram_chat_id ?? '')
   if (foto) form.append('foto', foto)
 
   const { data } = await apiClient.put<PropietarioOut>(`/api/v1/propietarios/${uid}`, form)

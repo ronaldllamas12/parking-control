@@ -54,7 +54,7 @@ export async function createOwnerQrDataUrl(uid: string, nombre: string): Promise
   ctx.fillStyle = '#0f172a'
   ctx.font = '700 24px Arial, sans-serif'
   ctx.textAlign = 'center'
-  ctx.fillText('PARQUEADERO IGUAZU', canvas.width / 2, 46)
+  ctx.fillText('Gestion Integral Pro', canvas.width / 2, 46)
   ctx.fillText('QR de acceso ', canvas.width / 2, 70)
 
   ctx.fillStyle = '#2563eb'

@@ -555,8 +555,6 @@ def update_propietario(
         propietario.estado_cuenta = payload.estado_cuenta
     if payload.amenidades_suspendidas is not None:
         propietario.amenidades_suspendidas = payload.amenidades_suspendidas
-    if payload.telegram_chat_id is not None:
-        propietario.telegram_chat_id = payload.telegram_chat_id or None
     if payload.nfc_tag_id is not None:
         propietario.nfc_tag_id = payload.nfc_tag_id or None
     if new_foto_url is not None:
@@ -678,5 +676,87 @@ def get_all_huellas(db: Session, conjunto_id: UUID) -> list[models.HuellaDigital
         .filter(models.HuellaDigital.conjunto_id == conjunto_id)
         .all()
     )
+
+
+# ── Telegram link ─────────────────────────────────────────────────────────────
+
+_TELEGRAM_TOKEN_EXPIRY_HOURS = 48
+
+
+def generate_telegram_link_token(
+    db: Session,
+    uid: str,
+    conjunto_id: UUID,
+) -> Optional[models.Propietario]:
+    """Generate (or regenerate) a one-time linking token for the propietario.
+
+    Any previously issued token is replaced, making the old link invalid.
+    Returns the updated propietario, or None if not found.
+    """
+    propietario = get_propietario_by_uid(db, uid.upper(), conjunto_id=conjunto_id)
+    if not propietario:
+        return None
+    propietario.telegram_link_token = secrets.token_urlsafe(32)
+    propietario.telegram_link_token_created_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(propietario)
+    return propietario
+
+
+def link_telegram_by_token(
+    db: Session,
+    token: str,
+    chat_id: str,
+) -> tuple[Optional[models.Propietario], Optional[str]]:
+    """Attempt to link a Telegram chat_id to a propietario via a one-time token.
+
+    Returns ``(propietario, None)`` on success, ``(None, error_message)`` on failure.
+    The token is invalidated on success.
+    """
+    from datetime import timedelta
+
+    propietario = (
+        db.query(models.Propietario)
+        .filter(models.Propietario.telegram_link_token == token)
+        .first()
+    )
+
+    if not propietario:
+        return None, "El enlace ya fue utilizado o no es válido. Solicita uno nuevo al administrador."
+
+    # Check expiry
+    if propietario.telegram_link_token_created_at:
+        expires_at = propietario.telegram_link_token_created_at + timedelta(
+            hours=_TELEGRAM_TOKEN_EXPIRY_HOURS
+        )
+        if datetime.now(timezone.utc) > expires_at:
+            return None, (
+                "⏰ El enlace ha expirado. Solicita un nuevo enlace al administrador."
+            )
+
+    # Guard against duplicate chat_id across propietarios in the same conjunction
+    duplicate = (
+        db.query(models.Propietario)
+        .filter(
+            models.Propietario.telegram_chat_id == chat_id,
+            models.Propietario.id != propietario.id,
+            models.Propietario.conjunto_id == propietario.conjunto_id,
+        )
+        .first()
+    )
+    if duplicate:
+        return None, (
+            "⚠️ Esta cuenta de Telegram ya está vinculada a otro residente del conjunto. "
+            "Contacta al administrador si crees que es un error."
+        )
+
+    propietario.telegram_chat_id = chat_id
+    propietario.telegram_linked_at = datetime.now(timezone.utc)
+    # Invalidate token so it cannot be reused
+    propietario.telegram_link_token = None
+    propietario.telegram_link_token_created_at = None
+    db.commit()
+    db.refresh(propietario)
+    return propietario, None
 
 

@@ -1,6 +1,6 @@
-import logging
 import csv
 import io
+import logging
 import unicodedata
 from datetime import datetime
 from typing import Optional
@@ -10,7 +10,8 @@ from app.database import get_db
 from app.exceptions import AppException
 from app.security import role_required
 from app.services.cloudinary_service import upload_owner_photo
-from app.services.telegram_service import enviar_notificacion_telegram
+from app.services.telegram_service import (enviar_notificacion_telegram,
+                                           get_bot_username)
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
@@ -494,7 +495,6 @@ def actualizar_propietario(
     numero_contacto: Optional[str] = Form(None),
     torre: Optional[str] = Form(None),
     apartamento: Optional[str] = Form(None),
-    telegram_chat_id: Optional[str] = Form(None),
     foto: Optional[UploadFile] = File(None),
     current_user=Depends(role_required(["admin"])),
     db: Session = Depends(get_db),
@@ -511,7 +511,6 @@ def actualizar_propietario(
             numero_contacto=numero_contacto,
             torre=torre,
             apartamento=apartamento,
-            telegram_chat_id=telegram_chat_id,
         )
     except ValidationError as exc:
         raise AppException(status_code=422, detail="Datos inválidos") from exc
@@ -645,4 +644,59 @@ def registrar_propietarios_bulk(
         "Importación masiva: %d creados, %d errores", len(creados), len(errores)
     )
     return schemas.BulkImportResponse(creados=creados, errores=errores)
+
+
+# ── Single propietario (status polling) ──────────────────────────────────────
+
+@router.get("/{uid}", response_model=schemas.PropietarioOut)
+def obtener_propietario(
+    uid: str,
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    propietario = crud.get_propietario_by_uid(
+        db, uid.upper(), conjunto_id=current_user.conjunto_id
+    )
+    if not propietario:
+        raise HTTPException(status_code=404, detail="Propietario no encontrado")
+    return propietario
+
+
+# ── Telegram link generation ──────────────────────────────────────────────────
+
+@router.post("/{uid}/telegram-link", response_model=schemas.TelegramLinkOut)
+async def generar_telegram_link(
+    uid: str,
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    """Generate (or regenerate) a one-time Telegram deep-link for the propietario.
+
+    The previous token is invalidated automatically.
+    """
+    conjunto = crud.get_conjunto_by_id(db, current_user.conjunto_id)
+    if not conjunto:
+        raise HTTPException(status_code=404, detail="Conjunto no encontrado")
+    if not conjunto.telegram_bot_token:
+        raise HTTPException(
+            status_code=400,
+            detail="El conjunto no tiene un token de bot Telegram configurado. "
+                   "Configúralo en Superadmin antes de generar el enlace.",
+        )
+
+    bot_username = await get_bot_username(conjunto.telegram_bot_token)
+    if not bot_username:
+        raise HTTPException(
+            status_code=502,
+            detail="No se pudo obtener el nombre del bot desde Telegram. "
+                   "Verifica que el token del bot sea correcto.",
+        )
+
+    propietario = crud.generate_telegram_link_token(db, uid, current_user.conjunto_id)
+    if not propietario:
+        raise HTTPException(status_code=404, detail="Propietario no encontrado")
+
+    link = f"https://t.me/{bot_username}?start={propietario.telegram_link_token}"
+    logger.info("Telegram link generado uid=%s bot=%s", uid, bot_username)
+    return schemas.TelegramLinkOut(link=link, bot_username=bot_username)
 

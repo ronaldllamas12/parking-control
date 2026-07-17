@@ -7,6 +7,7 @@ import {
     Filter,
     Fingerprint,
     Home,
+    MessageSquare,
     Phone,
     Plus,
     RefreshCw,
@@ -24,10 +25,10 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { read as xlsxRead, utils as xlsxUtils, writeFile as xlsxWriteFile } from 'xlsx'
 import {
-    actualizarPropietario,
     actualizarAmenidadesPropietario,
-    descargarPazYSalvo,
     actualizarEstadoBulk,
+    actualizarPropietario,
+    descargarPazYSalvo,
     eliminarHuella,
     eliminarPropietario,
     importarEstadoCsv,
@@ -37,6 +38,7 @@ import {
     registrarPropietariosBulk,
     toggleAccesoPropietario,
 } from '../../api/propietarios'
+import TelegramLinkModal from '../../components/TelegramLinkModal'
 import type { ApiErrorBody, BulkImportResult, PropietarioOut } from '../../types'
 import {
     FingerprintError,
@@ -559,7 +561,6 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
   const [numeroContacto, setNumeroContacto] = useState(item.numero_contacto ?? '')
   const [torre, setTorre] = useState(item.torre)
   const [apartamento, setApartamento] = useState(item.apartamento)
-  const [telegramChatId, setTelegramChatId] = useState(item.telegram_chat_id ?? '')
   const [foto, setFoto] = useState<File | null>(null)
   const [preview, setPreview] = useState<string>(item.foto_url)
   const [saving, setSaving] = useState(false)
@@ -585,7 +586,6 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
           numero_contacto: numeroContacto,
           torre,
           apartamento,
-          telegram_chat_id: telegramChatId.trim() || null,
         },
         foto ?? undefined,
       )
@@ -648,11 +648,6 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
           <div>
             <label className="field-label">Apartamento</label>
             <input value={apartamento} onChange={(e) => setApartamento(e.target.value.toUpperCase().replace(/\D/g, ''))} required inputMode="numeric" pattern="[0-9]*" className="field uppercase" />
-          </div>
-
-          <div>
-            <label className="field-label">Chat ID Telegram</label>
-            <input value={telegramChatId} onChange={(e) => setTelegramChatId(e.target.value.trim())} maxLength={80} className="field" placeholder="Ej: 123456789" />
           </div>
 
           {error && <p className="field-error">{error}</p>}
@@ -740,6 +735,7 @@ export default function ListarPropietarios() {
   const [editing, setEditing] = useState<PropietarioOut | null>(null)
   const [deleting, setDeleting] = useState<PropietarioOut | null>(null)
   const [fpEditing, setFpEditing] = useState<PropietarioOut | null>(null)
+  const [tgLinking, setTgLinking] = useState<PropietarioOut | null>(null)
   const [downloadingQrUid, setDownloadingQrUid] = useState<string | null>(null)
   const [downloadingPazUid, setDownloadingPazUid] = useState<string | null>(null)
   const [togglingUid, setTogglingUid] = useState<string | null>(null)
@@ -863,6 +859,11 @@ export default function ListarPropietarios() {
   const handleFpSaved = (updated: PropietarioOut) => {
     setPropietarios((prev) => prev.map((p) => (p.uid === updated.uid ? updated : p)))
     setFpEditing(updated)   // keep modal open showing result
+  }
+
+  const handleTgLinked = (updated: PropietarioOut) => {
+    setPropietarios((prev) => prev.map((p) => (p.uid === updated.uid ? updated : p)))
+    // keep modal open so admin can see the success state
   }
 
   const handleToggleAmenidades = async (item: PropietarioOut) => {
@@ -1176,6 +1177,16 @@ export default function ListarPropietarios() {
                       Amenidades suspendidas
                     </span>
                   )}
+                  {/* Telegram status badge */}
+                  {p.telegram_linked_at ? (
+                    <span className="badge bg-teal-50 text-teal-700 border border-teal-200 flex items-center gap-1">
+                      <MessageSquare className="w-2.5 h-2.5" />🟢 Telegram
+                    </span>
+                  ) : (
+                    <span className="badge bg-slate-50 text-slate-400 border border-slate-200 flex items-center gap-1">
+                      <MessageSquare className="w-2.5 h-2.5" />🔴 Sin Telegram
+                    </span>
+                  )}
                 </div>
                 {p.numero_contacto && (
                   <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-400">
@@ -1234,11 +1245,24 @@ export default function ListarPropietarios() {
                   disabled={notifyingUid === p.uid || !p.telegram_chat_id}
                   className="w-8 h-8 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-600 flex items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Avisar por Telegram"
-                  title={p.telegram_chat_id ? 'Avisar por Telegram' : 'Agrega el Chat ID Telegram en editar'}
+                  title={p.telegram_chat_id ? 'Avisar por Telegram' : 'Vincular Telegram primero'}
                 >
                   {notifyingUid === p.uid
                     ? <span className="w-3.5 h-3.5 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
                     : <Send className="w-3.5 h-3.5" />}
+                </button>
+                {/* Vincular / Regenerar Telegram */}
+                <button
+                  onClick={() => setTgLinking(p)}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
+                    p.telegram_linked_at
+                      ? 'bg-teal-50 hover:bg-teal-100 text-teal-600'
+                      : 'bg-sky-50 hover:bg-sky-100 text-sky-600'
+                  }`}
+                  aria-label={p.telegram_linked_at ? 'Regenerar enlace Telegram' : 'Vincular Telegram'}
+                  title={p.telegram_linked_at ? 'Regenerar enlace Telegram' : 'Vincular Telegram'}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => { void handleDownloadPazYSalvo(p) }}
@@ -1276,6 +1300,13 @@ export default function ListarPropietarios() {
 
       {fpEditing && (
         <RegisterFingerprintModal item={fpEditing} onClose={() => setFpEditing(null)} onSaved={handleFpSaved} />
+      )}
+      {tgLinking && (
+        <TelegramLinkModal
+          item={tgLinking}
+          onClose={() => setTgLinking(null)}
+          onLinked={handleTgLinked}
+        />
       )}
       {editing && (
         <EditModal item={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />

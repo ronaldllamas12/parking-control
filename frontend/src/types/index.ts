@@ -85,6 +85,7 @@ export interface PropietarioOut {
   estado_cuenta: 'al_dia' | 'en_mora'
   amenidades_suspendidas: boolean
   telegram_chat_id?: string | null
+  telegram_linked_at?: string | null
   nfc_tag_id?: string | null
   huella_registrada: boolean
 }
@@ -96,8 +97,12 @@ export interface PropietarioUpdate {
   apartamento?: string
   estado_cuenta?: 'al_dia' | 'en_mora'
   amenidades_suspendidas?: boolean
-  telegram_chat_id?: string | null
   nfc_tag_id?: string | null
+}
+
+export interface TelegramLinkOut {
+  link: string
+  bot_username: string
 }
 
 export interface ZonaAcceso {

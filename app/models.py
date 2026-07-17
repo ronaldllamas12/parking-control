@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from app.database import Base
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (Boolean, CheckConstraint, DateTime, ForeignKey, String,
+                        Text, UniqueConstraint)
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -135,6 +136,15 @@ class Propietario(Base):
         Boolean, nullable=False, default=False, server_default="false", index=True
     )
     telegram_chat_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    telegram_link_token: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, unique=True, index=True
+    )
+    telegram_link_token_created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    telegram_linked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     nfc_tag_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     huella_registrada: Mapped[bool] = mapped_column(nullable=False, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(

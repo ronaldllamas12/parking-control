@@ -1,13 +1,13 @@
 import logging
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
 from app import crud
-from app.api import acceso, admin, auth, propietarios, registros_acceso, superadmin, zonas
+from app.api import (acceso, admin, auth, propietarios, registros_acceso,
+                     superadmin, telegram, zonas)
 from app.config import get_settings
 from app.database import SessionLocal
 from app.exceptions import register_exception_handlers
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,6 +49,7 @@ app.include_router(zonas.router, prefix="/api/v1")
 app.include_router(propietarios.router, prefix="/api/v1")
 app.include_router(registros_acceso.router, prefix="/api/v1")
 app.include_router(acceso.router, prefix="/api/v1")
+app.include_router(telegram.router, prefix="/api/v1")
 
 
 @app.on_event("startup")
