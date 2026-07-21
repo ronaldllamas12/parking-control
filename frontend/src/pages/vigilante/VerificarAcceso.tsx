@@ -20,6 +20,7 @@ import QrScanner from 'qr-scanner'
 import { useEffect, useRef, useState } from 'react'
 import { listarHistorialReciente, listarHuellas, notificarPropietarioAcceso, verificarAccesoZona } from '../../api/acceso'
 import { listarZonasAcceso } from '../../api/zonas'
+import TelegramNotifyModal from '../../components/TelegramNotifyModal'
 import type { ApiErrorBody, HistorialAccesoOut, VerificacionResponse, ZonaAcceso } from '../../types'
 import {
   FingerprintError,
@@ -78,6 +79,12 @@ export default function VerificarAcceso() {
   const [notice, setNotice] = useState<string | null>(null)
   const [notifyError, setNotifyError] = useState<string | null>(null)
   const [notifyingUid, setNotifyingUid] = useState<string | null>(null)
+  const [notifyTarget, setNotifyTarget] = useState<{
+    uid: string
+    nombre?: string
+    torre?: string
+    apartamento?: string
+  } | null>(null)
   const [historial, setHistorial] = useState<HistorialAccesoOut[]>([])
   const [historialError, setHistorialError] = useState<string | null>(null)
   const [zonas, setZonas] = useState<ZonaAcceso[]>([])
@@ -358,7 +365,16 @@ export default function VerificarAcceso() {
     setTimeout(() => inputRef.current?.focus(), 50)
   }
 
-  const handleNotify = async (
+  const vigilanteDefaultMessage = (
+    nombre?: string,
+    torre?: string,
+    apartamento?: string,
+  ) => {
+    const locationText = torre && apartamento ? ` Torre ${torre}, apartamento ${apartamento}.` : ''
+    return `Hola${nombre ? ` ${nombre}` : ''}. Vigilancia informa: por favor comuníquese o acérquese a la portería para revisar una novedad de acceso.${locationText}`
+  }
+
+  const openNotify = (
     targetUid: string,
     nombre?: string,
     torre?: string,
@@ -366,20 +382,22 @@ export default function VerificarAcceso() {
   ) => {
     const normalizedUid = targetUid.trim().toUpperCase()
     if (!normalizedUid) return
+    setNotifyError(null)
+    setNotifyTarget({ uid: normalizedUid, nombre, torre, apartamento })
+  }
 
-    setNotifyingUid(normalizedUid)
+  const handleNotifySend = async (mensaje: string) => {
+    if (!notifyTarget) return
+    const { uid: targetUid, nombre } = notifyTarget
+    setNotifyingUid(targetUid)
     setNotice(null)
     setNotifyError(null)
     try {
-      const locationText = torre && apartamento ? ` Torre ${torre}, apartamento ${apartamento}.` : ''
-      await notificarPropietarioAcceso(
-        normalizedUid,
-        `Hola${nombre ? ` ${nombre}` : ''}. Vigilancia informa: por favor comuníquese o acérquese a la portería para revisar una novedad de acceso.${locationText}`,
-      )
+      await notificarPropietarioAcceso(targetUid, mensaje)
       setNotice(`Notificación enviada${nombre ? ` a ${nombre}` : ''}`)
     } catch (err) {
-      const axiosErr = err as AxiosError<ApiErrorBody>
-      setNotifyError(axiosErr.response?.data?.detail ?? 'No se pudo enviar la notificación')
+      setNotifyingUid(null)
+      throw err
     } finally {
       setNotifyingUid(null)
     }
@@ -631,7 +649,7 @@ export default function VerificarAcceso() {
                   <InfoCard icon={<Phone className="w-4 h-4 text-brand-600" />} label="Contacto" value={result.numero_contacto ?? 'Sin registrar'} />
                   <button
                     type="button"
-                    onClick={() => { void handleNotify(result.uid, result.nombre, result.torre, result.apartamento) }}
+                    onClick={() => openNotify(result.uid, result.nombre, result.torre, result.apartamento)}
                     disabled={notifyingUid === result.uid || !result.telegram_chat_id}
                     className="col-span-2 btn-primary justify-center bg-teal-600 hover:bg-teal-700 disabled:opacity-50"
                     title={result.telegram_chat_id ? 'Notificar por Telegram' : 'El propietario no tiene Chat ID Telegram configurado'}
@@ -674,7 +692,7 @@ export default function VerificarAcceso() {
               {uid.trim() && (
                 <button
                   type="button"
-                  onClick={() => { void handleNotify(uid) }}
+                  onClick={() => openNotify(uid)}
                   disabled={notifyingUid === uid.trim().toUpperCase()}
                   className="btn-primary w-full justify-center bg-teal-600 hover:bg-teal-700 disabled:opacity-50"
                 >
@@ -706,7 +724,7 @@ export default function VerificarAcceso() {
               {uid.trim() && (
                 <button
                   type="button"
-                  onClick={() => { void handleNotify(uid) }}
+                  onClick={() => openNotify(uid)}
                   disabled={notifyingUid === uid.trim().toUpperCase()}
                   className="btn-primary w-full justify-center bg-teal-600 hover:bg-teal-700 disabled:opacity-50"
                 >
@@ -772,7 +790,7 @@ export default function VerificarAcceso() {
                     <p className="text-[10px] text-slate-400 mt-0.5">{formatDateTime(item.verificado_en)}</p>
                     <button
                       type="button"
-                      onClick={() => { void handleNotify(item.uid, item.nombre, item.torre, item.apartamento) }}
+                      onClick={() => openNotify(item.uid, item.nombre, item.torre, item.apartamento)}
                       disabled={notifyingUid === item.uid || !item.telegram_chat_id}
                       className="mt-2 inline-flex items-center gap-1 rounded-lg border border-teal-200 bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-700 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-40"
                       title={item.telegram_chat_id ? 'Notificar por Telegram' : 'El propietario no tiene Chat ID Telegram configurado'}
@@ -789,6 +807,22 @@ export default function VerificarAcceso() {
           )}
         </aside>
       </div>
+
+      {notifyTarget && (
+        <TelegramNotifyModal
+          nombre={notifyTarget.nombre ?? 'Propietario'}
+          uid={notifyTarget.uid}
+          torre={notifyTarget.torre}
+          apartamento={notifyTarget.apartamento}
+          defaultMessage={vigilanteDefaultMessage(
+            notifyTarget.nombre,
+            notifyTarget.torre,
+            notifyTarget.apartamento,
+          )}
+          onClose={() => setNotifyTarget(null)}
+          onSend={handleNotifySend}
+        />
+      )}
     </div>
   )
 }

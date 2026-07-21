@@ -1,49 +1,50 @@
 import type { AxiosError } from 'axios'
 import {
-    Building2,
-    Download,
-    Edit2,
-    FileSpreadsheet,
-    Filter,
-    Fingerprint,
-    Home,
-    MessageSquare,
-    Phone,
-    Plus,
-    RefreshCw,
-    Save,
-    Search,
-    Send,
-    ShieldCheck,
-    ShieldX,
-    Trash2,
-    Upload,
-    Users,
-    X,
+  Building2,
+  Download,
+  Edit2,
+  FileSpreadsheet,
+  Filter,
+  Fingerprint,
+  Home,
+  MessageSquare,
+  Phone,
+  Plus,
+  RefreshCw,
+  Save,
+  Search,
+  Send,
+  ShieldCheck,
+  ShieldX,
+  Trash2,
+  Upload,
+  Users,
+  X,
 } from 'lucide-react'
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { read as xlsxRead, utils as xlsxUtils, writeFile as xlsxWriteFile } from 'xlsx'
 import {
-    actualizarAmenidadesPropietario,
-    actualizarEstadoBulk,
-    actualizarPropietario,
-    descargarPazYSalvo,
-    eliminarHuella,
-    eliminarPropietario,
-    importarEstadoCsv,
-    listarPropietarios,
-    notificarPropietario,
-    registrarHuella,
-    registrarPropietariosBulk,
-    toggleAccesoPropietario,
+  actualizarAmenidadesPropietario,
+  actualizarEstadoBulk,
+  actualizarPropietario,
+  descargarPazYSalvo,
+  eliminarHuella,
+  eliminarPropietario,
+  importarEstadoCsv,
+  listarPropietarios,
+  notificarPropietario,
+  registrarHuella,
+  registrarPropietariosBulk,
+  toggleAccesoPropietario,
 } from '../../api/propietarios'
 import TelegramLinkModal from '../../components/TelegramLinkModal'
+import TelegramNotifyModal from '../../components/TelegramNotifyModal'
 import type { ApiErrorBody, BulkImportResult, PropietarioOut } from '../../types'
 import {
-    FingerprintError,
-    FingerprintReader,
-    isWebSerialSupported,
+  FingerprintError,
+  FingerprintReader,
+  isWebSerialSupported,
 } from '../../utils/fingerprintSerial'
 import { createOwnerQrDataUrl, qrFileName } from '../../utils/qrDownload'
 
@@ -736,6 +737,7 @@ export default function ListarPropietarios() {
   const [deleting, setDeleting] = useState<PropietarioOut | null>(null)
   const [fpEditing, setFpEditing] = useState<PropietarioOut | null>(null)
   const [tgLinking, setTgLinking] = useState<PropietarioOut | null>(null)
+  const [notifyTarget, setNotifyTarget] = useState<PropietarioOut | null>(null)
   const [downloadingQrUid, setDownloadingQrUid] = useState<string | null>(null)
   const [downloadingPazUid, setDownloadingPazUid] = useState<string | null>(null)
   const [togglingUid, setTogglingUid] = useState<string | null>(null)
@@ -883,19 +885,20 @@ export default function ListarPropietarios() {
     }
   }
 
-  const handleNotify = async (item: PropietarioOut) => {
-    setNotifyingUid(item.uid)
+  const adminDefaultMessage = (item: PropietarioOut) =>
+    `Hola ${item.nombre}. Administración informa: por favor acérquese a administración para revisar su estado de acceso. Torre ${item.torre}, apartamento ${item.apartamento}.`
+
+  const handleNotifySend = async (mensaje: string) => {
+    if (!notifyTarget) return
+    setNotifyingUid(notifyTarget.uid)
     setError(null)
     setNotice(null)
     try {
-      await notificarPropietario(
-        item.uid,
-        `Hola ${item.nombre}. Administración informa: por favor acérquese a administración para revisar su estado de acceso. Torre ${item.torre}, apartamento ${item.apartamento}.`,
-      )
-      setNotice(`Notificación enviada a ${item.nombre}`)
+      await notificarPropietario(notifyTarget.uid, mensaje)
+      setNotice(`Notificación enviada a ${notifyTarget.nombre}`)
     } catch (err) {
-      const axiosErr = err as AxiosError<ApiErrorBody>
-      setError(axiosErr.response?.data?.detail ?? 'No se pudo enviar la notificación')
+      setNotifyingUid(null)
+      throw err
     } finally {
       setNotifyingUid(null)
     }
@@ -1241,7 +1244,7 @@ export default function ListarPropietarios() {
                     : <ShieldX className="w-3.5 h-3.5" />}
                 </button>
                 <button
-                  onClick={() => { void handleNotify(p) }}
+                  onClick={() => setNotifyTarget(p)}
                   disabled={notifyingUid === p.uid || !p.telegram_chat_id}
                   className="w-8 h-8 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-600 flex items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Avisar por Telegram"
@@ -1306,6 +1309,17 @@ export default function ListarPropietarios() {
           item={tgLinking}
           onClose={() => setTgLinking(null)}
           onLinked={handleTgLinked}
+        />
+      )}
+      {notifyTarget && (
+        <TelegramNotifyModal
+          nombre={notifyTarget.nombre}
+          uid={notifyTarget.uid}
+          torre={notifyTarget.torre}
+          apartamento={notifyTarget.apartamento}
+          defaultMessage={adminDefaultMessage(notifyTarget)}
+          onClose={() => setNotifyTarget(null)}
+          onSend={handleNotifySend}
         />
       )}
       {editing && (

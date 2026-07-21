@@ -40,20 +40,23 @@ async def telegram_webhook(
     message: dict | None = update.get("message")
     if not message:
         return {"ok": True}
-
+    
     chat_id = str(message.get("chat", {}).get("id", ""))
-    text: str = (message.get("text") or "").strip()
-
+    text = (message.get("text") or "").strip()
+    
+    logger.info("Texto recibido: %s", text)
+    logger.info("Chat ID: %s", chat_id)
+    
     if not chat_id or not text.startswith("/start"):
         return {"ok": True}
-
+    
     parts = text.split(maxsplit=1)
-    token: str | None = parts[1].strip() if len(parts) > 1 else None
-
+    token = parts[1].strip() if len(parts) > 1 else None
+    
+    logger.info("Token recibido: %s", token)
+    
     if not token:
-        # Plain /start with no token — can't identify which conjunto or propietario
         return {"ok": True}
-
     # Locate propietario BEFORE linking so we can get the bot token even on failure
     candidate = (
         db.query(models.Propietario)

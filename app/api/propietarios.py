@@ -15,6 +15,19 @@ from app.services.telegram_service import (enviar_notificacion_telegram,
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
+from reportlab.graphics import renderPDF
+from reportlab.graphics.barcode import qr
+from reportlab.graphics.shapes import Drawing
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
+from reportlab.platypus import Paragraph
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -34,192 +47,204 @@ def _get_propietario_scoped(
     )
 
 
-def _build_paz_y_salvo_pdf(propietario: models.Propietario) -> bytes:
+FONT="Helvetica"
+FONT_B="Helvetica-Bold"
+
+NAVY=colors.HexColor("#1E3A8A")
+BLUE=colors.HexColor("#144e94")
+LIGHT=colors.HexColor("#F8FAFC")
+BORDER=colors.HexColor("#CBD5E1")
+TEXT=colors.HexColor("#111827")
+GRAY=colors.HexColor("#64748B")
+GREEN=colors.HexColor("#16A34A")
+GREEN_BG=colors.HexColor("#DCFCE7")
+SHADOW=colors.HexColor("#E5E7EB")
+
+def card(pdf,x,y,w,h,r=10):
+    pdf.setFillColor(SHADOW)
+    pdf.roundRect(x+3,y-3,w,h,r,fill=1,stroke=0)
+    pdf.setFillColor(colors.white)
+    pdf.setStrokeColor(BORDER)
+    pdf.roundRect(x,y,w,h,r,fill=1)
+
+def badge(pdf,x,y,text):
+    pdf.setFillColor(GREEN_BG)
+    pdf.roundRect(x,y,120,24,12,fill=1,stroke=0)
+    pdf.setFillColor(GREEN)
+    pdf.setFont(FONT_B,10)
+    pdf.drawCentredString(x+60,y+8,text)
+
+def paragraph(pdf,text,x,y,w):
+    style=ParagraphStyle(
+        "body",
+        fontName=FONT,
+        fontSize=10.5,
+        leading=22,
+        textColor=TEXT,
+        alignment=4 # justify
+    )
+    p=Paragraph(text,style)
+    p.wrapOn(pdf,w,500)
+    p.drawOn(pdf,x,y-p.height)
+
+def _build_paz_y_salvo_pdf(propietario):
+    buffer=io.BytesIO()
+    pdf=canvas.Canvas(buffer,pagesize=letter)
+    width,height=letter
+    m=40
+
+    # fondo
+    pdf.setFillColor(colors.white)
+    pdf.rect(0,0,width,height,fill=1,stroke=0)
+
+    # header
+    pdf.setFillColor(colors.white)
+    pdf.rect(0,height-95,width,95,fill=1,stroke=0)
+    pdf.setStrokeColor(GRAY)
+    pdf.setLineWidth(3)
+    pdf.line(0,height-95,width,height-95)
+
     try:
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import letter
-        from reportlab.lib.units import inch
-        from reportlab.pdfgen import canvas
-    except ImportError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail="Dependencia reportlab no instalada para generar PDF",
-        ) from exc
+        logo=ImageReader("/control-parqueadero/frontend/dist/logo-login.png")
+        pdf.drawImage(logo,m,height-72,width=48,height=48,mask='auto')
+    except:
+        pass
 
-    def draw_wrapped_text(
-        pdf: canvas.Canvas,
-        text: str,
-        x: float,
-        y: float,
-        max_width: float,
-        font_name: str,
-        font_size: int,
-        leading: int,
-    ) -> float:
-        words = text.split()
-        lines: list[str] = []
-        current = ""
-        for word in words:
-            candidate = f"{current} {word}".strip()
-            if pdf.stringWidth(candidate, font_name, font_size) <= max_width:
-                current = candidate
-            else:
-                if current:
-                    lines.append(current)
-                current = word
-        if current:
-            lines.append(current)
+    pdf.setFillColor(TEXT)
+    pdf.setFont(FONT_B,20)
+    pdf.drawString(m+60,height-45,"CONJUNTO RESIDENCIAL ")
+    pdf.setFont(FONT,10)
+    pdf.setFillColor(GRAY)
+    pdf.drawString(m+60,height-62,"Administración General")
 
-        pdf.setFont(font_name, font_size)
-        for line in lines:
-            pdf.drawString(x, y, line)
-            y -= leading
-        return y
+    pdf.setFont(FONT_B,22)
+    pdf.setFillColor(NAVY)
+    pdf.drawCentredString(width/2,height-120,"CERTIFICADO DE PAZ Y SALVO")
 
-    buffer = io.BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-    margin = 0.72 * inch
-    navy = colors.HexColor("#0F172A")
-    slate = colors.HexColor("#475569")
-    muted = colors.HexColor("#94A3B8")
-    blue = colors.HexColor("#1D4ED8")
-    blue_dark = colors.HexColor("#1E3A8A")
-    blue_light = colors.HexColor("#EFF6FF")
-    emerald = colors.HexColor("#059669")
-    emerald_light = colors.HexColor("#ECFDF5")
-    border = colors.HexColor("#D8E2F0")
-    surface = colors.HexColor("#F8FAFC")
-    today = datetime.now().strftime("%d/%m/%Y")
+    pdf.setFont(FONT,10)
+    pdf.setFillColor(GRAY)
+    pdf.drawCentredString(width/2,height-138,"Documento Oficial generado electrónicamente")
 
-    pdf.setTitle(f"Paz y Salvo {propietario.uid}")
+    numero=f"PY-{datetime.now():%Y}-{str(propietario.uid)[:6]}"
+    pdf.setFillColor(TEXT)
+    pdf.setFont(FONT_B,10)
+    pdf.drawRightString(width-m,height-45,"Certificado")
+    pdf.setFont(FONT,10)
+    pdf.drawRightString(width-m,height-60,numero)
+    pdf.drawRightString(width-m,height-75,datetime.now().strftime("%d/%m/%Y"))
 
-    # Header band
-    pdf.setFillColor(navy)
-    pdf.rect(0, height - 1.85 * inch, width, 1.85 * inch, fill=1, stroke=0)
-    pdf.setFillColor(blue_dark)
-    pdf.circle(width - 0.65 * inch, height - 0.2 * inch, 1.35 * inch, fill=1, stroke=0)
-    pdf.setFillColor(blue)
-    pdf.circle(width - 1.65 * inch, height - 1.65 * inch, 0.85 * inch, fill=1, stroke=0)
+    # propietario
+    y=height-265
+    card(pdf,m,y,width-2*m,105)
+    pdf.setFillColor(NAVY)
+    pdf.setFont(FONT_B,13)
+    pdf.drawString(m+20,y+85,"DATOS DEL PROPIETARIO")
 
-    pdf.setFillColor(colors.white)
-    pdf.setFont("Helvetica-Bold", 26)
-    pdf.drawString(margin, height - 0.82 * inch, "PAZ Y SALVO")
-    pdf.setFont("Helvetica", 10)
-    pdf.setFillColor(colors.HexColor("#CBD5E1"))
-    pdf.drawString(margin, height - 1.12 * inch, "Certificado de estado administrativo del residente")
-    pdf.setFont("Helvetica-Bold", 9)
-    pdf.setFillColor(colors.white)
-    pdf.roundRect(width - margin - 1.72 * inch, height - 0.94 * inch, 1.72 * inch, 0.36 * inch, 9, fill=0, stroke=1)
-    pdf.drawCentredString(width - margin - 0.86 * inch, height - 0.82 * inch, f"UID {propietario.uid}")
+    pdf.setFillColor(TEXT)
+    pdf.setFont(FONT_B,10)
+    pdf.drawString(m+20,y+60,"Nombre")
+    pdf.setFont(FONT,10)
+    pdf.drawString(m+100,y+60,propietario.nombre)
 
-    # Main certificate card
-    card_x = margin
-    card_y = 1.18 * inch
-    card_w = width - 2 * margin
-    card_h = height - 3.42 * inch
-    pdf.setFillColor(colors.white)
-    pdf.setStrokeColor(border)
-    pdf.roundRect(card_x, card_y, card_w, card_h, 14, fill=1, stroke=1)
+    pdf.setFont(FONT_B,10)
+    pdf.drawString(m+20,y+40,"Torre")
+    pdf.setFont(FONT,10)
+    pdf.drawString(m+100,y+40,str(propietario.torre))
 
-    pdf.setFillColor(surface)
-    pdf.roundRect(card_x + 0.25 * inch, height - 2.72 * inch, card_w - 0.5 * inch, 0.92 * inch, 12, fill=1, stroke=0)
-    pdf.setFillColor(navy)
-    pdf.setFont("Helvetica-Bold", 15)
-    pdf.drawString(card_x + 0.48 * inch, height - 2.17 * inch, propietario.nombre)
-    pdf.setFont("Helvetica", 10)
-    pdf.setFillColor(slate)
-    pdf.drawString(
-        card_x + 0.48 * inch,
-        height - 2.42 * inch,
-        f"Torre {propietario.torre}   Apartamento {propietario.apartamento}   Contacto {propietario.numero_contacto or 'No registrado'}",
-    )
+    pdf.setFont(FONT_B,10)
+    pdf.drawString(m+20,y+20,"Apartamento")
+    pdf.setFont(FONT,10)
+    pdf.drawString(m+100,y+20,str(propietario.apartamento))
 
-    status_w = 1.42 * inch
-    pdf.setFillColor(emerald_light)
-    pdf.setStrokeColor(colors.HexColor("#A7F3D0"))
-    pdf.roundRect(card_x + card_w - status_w - 0.48 * inch, height - 2.38 * inch, status_w, 0.34 * inch, 8, fill=1, stroke=1)
-    pdf.setFillColor(emerald)
-    pdf.setFont("Helvetica-Bold", 9)
-    pdf.drawCentredString(card_x + card_w - 0.48 * inch - status_w / 2, height - 2.26 * inch, "AL DIA")
+    badge(pdf,width-190,y+45," PAZ Y SALVO")
 
-    # Details grid
-    detail_y = height - 3.3 * inch
-    detail_items = [
-        ("Fecha de expedicion", today),
-        ("Estado de cuenta", "Al dia"),
-        ("Amenidades", "Sin suspension"),
-        ("Acceso", "Habilitado"),
+    # certificacion
+    y2=y-180
+    card(pdf,m,y2,width-2*m,160)
+    pdf.setFillColor(NAVY)
+    pdf.setFont(FONT_B,13)
+    pdf.drawString(m+20,y2+135,"CERTIFICACIÓN")
+
+    texto=f"""
+    La Administración certifica que <b>{propietario.nombre}</b>,
+    propietario de la Torre <b>{propietario.torre}</b>,
+    Apartamento <b>{propietario.apartamento}</b>,
+    se encuentra a paz y salvo por concepto de las obligaciones
+    económicas registradas en el sistema a la fecha de expedición
+    del presente certificado.
+    """
+    paragraph(pdf,texto,m+20,y2+110,width-120)
+
+    # tabla
+    y3=y2-155
+    card(pdf,m,y3,330,130)
+    pdf.setFillColor(NAVY)
+    pdf.setFont(FONT_B,13)
+    pdf.drawString(m+20,y3+105,"ESTADO")
+
+    rows=[
+        ("Administración"," AL DÍA"),
+        ("Amenidades"," ACTIVAS"),
+        ("Acceso"," HABILITADO"),
+        ("Saldo","$0")
     ]
-    col_w = (card_w - 0.84 * inch) / 2
-    for idx, (label, value) in enumerate(detail_items):
-        col = idx % 2
-        row = idx // 2
-        x = card_x + 0.42 * inch + col * col_w
-        y = detail_y - row * 0.7 * inch
-        pdf.setFillColor(colors.white)
-        pdf.setStrokeColor(border)
-        pdf.roundRect(x, y - 0.42 * inch, col_w - 0.16 * inch, 0.5 * inch, 9, fill=1, stroke=1)
-        pdf.setFillColor(muted)
-        pdf.setFont("Helvetica-Bold", 7)
-        pdf.drawString(x + 0.16 * inch, y - 0.1 * inch, label.upper())
-        pdf.setFillColor(navy)
-        pdf.setFont("Helvetica-Bold", 10)
-        pdf.drawString(x + 0.16 * inch, y - 0.28 * inch, value)
+    yy=y3+78
+    for k,v in rows:
+        pdf.setStrokeColor(BORDER)
+        pdf.line(m+20,yy-6,m+300,yy-6)
+        pdf.setFont(FONT_B,10)
+        pdf.setFillColor(TEXT)
+        pdf.drawString(m+20,yy,k)
+        pdf.setFont(FONT,10)
+        pdf.setFillColor(GREEN if "✓" in v else TEXT)
+        pdf.drawRightString(m+290,yy,v)
+        yy-=24
 
-    statement_y = height - 5.05 * inch
-    pdf.setFillColor(navy)
-    pdf.setFont("Helvetica-Bold", 13)
-    pdf.drawString(card_x + 0.42 * inch, statement_y, "Certificacion")
-    pdf.setFillColor(slate)
-    statement = (
-        "La administracion certifica que el residente identificado en este documento "
-        "se encuentra a paz y salvo por concepto de obligaciones administrativas "
-        "registradas en el sistema a la fecha de expedicion."
-    )
-    draw_wrapped_text(
-        pdf,
-        statement,
-        card_x + 0.42 * inch,
-        statement_y - 0.34 * inch,
-        card_w - 0.84 * inch,
-        "Helvetica",
-        10,
-        15,
-    )
+    # qr
+    card(pdf,390,y3,160,130)
+    qr_code=qr.QrCodeWidget(f"https://tu-dominio.com/verificar/{propietario.uid}")
+    b=qr_code.getBounds()
+    d=Drawing(70,70,transform=[70/(b[2]-b[0]),0,0,70/(b[3]-b[1]),0,0])
+    d.add(qr_code)
+    renderPDF.draw(d,pdf,435,y3+35)
+    pdf.setFont(FONT,8)
+    pdf.setFillColor(GRAY)
+    pdf.drawCentredString(470,y3+20,"Escanee para verificar")
 
-    # Signature area
-    signature_y = card_y + 1.48 * inch
-    pdf.setStrokeColor(colors.HexColor("#CBD5E1"))
-    pdf.line(card_x + 0.42 * inch, signature_y, card_x + 2.95 * inch, signature_y)
-    pdf.setFillColor(navy)
-    pdf.setFont("Helvetica-Bold", 9)
-    pdf.drawString(card_x + 0.42 * inch, signature_y - 0.22 * inch, "Administracion")
-    pdf.setFillColor(muted)
-    pdf.setFont("Helvetica", 8)
-    pdf.drawString(card_x + 0.42 * inch, signature_y - 0.4 * inch, "Documento generado digitalmente")
+    # firma
+    pdf.line(m,105,m+170,105)
+    pdf.setFont(FONT_B,10)
+    pdf.setFillColor(TEXT)
+    pdf.drawString(m,90,"Administrador")
+    pdf.setFont(FONT,8)
+    pdf.setFillColor(GRAY)
+    pdf.drawString(m,77,"Firma digital certificada")
 
-    pdf.setFillColor(blue_light)
-    pdf.setStrokeColor(colors.HexColor("#BFDBFE"))
-    pdf.roundRect(card_x + card_w - 2.45 * inch, signature_y - 0.45 * inch, 2.03 * inch, 0.62 * inch, 10, fill=1, stroke=1)
-    pdf.setFillColor(blue_dark)
-    pdf.setFont("Helvetica-Bold", 8)
-    pdf.drawCentredString(card_x + card_w - 1.435 * inch, signature_y - 0.13 * inch, "VALIDO PARA TRAMITES")
-    pdf.setFont("Helvetica", 8)
-    pdf.drawCentredString(card_x + card_w - 1.435 * inch, signature_y - 0.31 * inch, "internos del conjunto")
+    # sello
+    pdf.saveState()
+    pdf.translate(width-120,120)
+    pdf.rotate(20)
+    pdf.setStrokeColor(BLUE)
+    pdf.setLineWidth(2)
+    pdf.circle(0,0,40)
+    pdf.setFont(FONT_B,9)
+    pdf.setFillColor(NAVY)
+    pdf.drawCentredString(0,5,"DOCUMENTO")
+    pdf.drawCentredString(0,-8,"OFICIAL")
+    pdf.restoreState()
 
-    # Footer
-    pdf.setStrokeColor(border)
-    pdf.line(margin, 0.78 * inch, width - margin, 0.78 * inch)
-    pdf.setFillColor(muted)
-    pdf.setFont("Helvetica", 8)
-    pdf.drawString(margin, 0.52 * inch, "Este certificado es informativo y fue emitido desde el sistema de control de acceso.")
-    pdf.drawRightString(width - margin, 0.52 * inch, f"Generado: {today}")
+    # footer
+    pdf.setStrokeColor(BORDER)
+    pdf.line(m,45,width-m,45)
+    pdf.setFont(FONT,8)
+    pdf.setFillColor(GRAY)
+    pdf.drawString(m,30,"Conjunto Residencial • Documento generado automáticamente")
+    pdf.drawRightString(width-m,30,"Página 1 de 1")
 
-    pdf.showPage()
     pdf.save()
     buffer.seek(0)
     return buffer.getvalue()
+
 
 
 @router.post("/", response_model=schemas.PropietarioOut)
