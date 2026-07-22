@@ -185,6 +185,79 @@ export interface HuellaTemplate {
   template_b64: string
 }
 
+// ── Finanzas ─────────────────────────────────────────────────────────────────
+export interface ConfigFinancieraOut {
+  id: number
+  conjunto_id: string
+  cuota_mensual_centavos: number
+  dia_vencimiento: number
+  activo: boolean
+  created_at: string
+}
+
+export interface ConceptoMovimientoOut {
+  id: number
+  nombre: string
+  tipo: 'cargo' | 'abono' | 'ingreso' | 'egreso' | string
+  activo: boolean
+  created_at: string
+}
+
+export interface GenerarCuotasOut {
+  periodo: string
+  creados: number
+  omitidos: number
+}
+
+export interface CarteraItemOut {
+  propietario_id: number
+  uid: string
+  nombre: string
+  torre: string
+  apartamento: string
+  estado_cuenta: string
+  saldo_centavos: number
+  ultimo_pago?: string | null
+  proximo_vencimiento?: string | null
+  telegram_chat_id?: string | null
+}
+
+export interface MovimientoCarteraOut {
+  id: number
+  tipo: 'cargo' | 'abono' | string
+  monto_centavos: number
+  fecha: string
+  periodo?: string | null
+  referencia?: string | null
+  notas?: string | null
+  concepto_id?: number | null
+  concepto_nombre?: string | null
+  created_by?: string | null
+  created_at: string
+  saldo_acumulado_centavos: number
+}
+
+export interface EstadoCuentaOut {
+  propietario_id: number
+  uid: string
+  nombre: string
+  torre: string
+  apartamento: string
+  estado_cuenta: string
+  saldo_centavos: number
+  movimientos: MovimientoCarteraOut[]
+}
+
+export interface MovimientoCarteraCreate {
+  tipo: 'cargo' | 'abono'
+  monto_centavos: number
+  fecha: string
+  concepto_id?: number | null
+  periodo?: string | null
+  referencia?: string | null
+  notas?: string | null
+}
+
 // ── API errors ────────────────────────────────────────────────────────────────
 export interface ApiErrorBody {
   detail: string

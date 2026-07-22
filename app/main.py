@@ -1,7 +1,7 @@
 import logging
 
 from app import crud
-from app.api import (acceso, admin, auth, propietarios, registros_acceso,
+from app.api import (acceso, admin, auth, finanzas, propietarios, registros_acceso,
                      superadmin, telegram, zonas)
 from app.config import get_settings
 from app.database import SessionLocal
@@ -50,6 +50,7 @@ app.include_router(propietarios.router, prefix="/api/v1")
 app.include_router(registros_acceso.router, prefix="/api/v1")
 app.include_router(acceso.router, prefix="/api/v1")
 app.include_router(telegram.router, prefix="/api/v1")
+app.include_router(finanzas.router, prefix="/api/v1")
 
 
 @app.on_event("startup")

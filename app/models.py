@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
 
 from app.database import Base
-from sqlalchemy import (Boolean, CheckConstraint, DateTime, ForeignKey, String,
-                        Text, UniqueConstraint)
+from sqlalchemy import (BigInteger, Boolean, CheckConstraint, Date, DateTime,
+                        ForeignKey, Integer, String, Text, UniqueConstraint)
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,6 +29,9 @@ class ConjuntoResidencial(Base):
     usuarios: Mapped[list["User"]] = relationship(back_populates="conjunto")
     propietarios: Mapped[list["Propietario"]] = relationship(back_populates="conjunto")
     zonas_acceso: Mapped[list["ZonaAcceso"]] = relationship(back_populates="conjunto")
+    config_financiera: Mapped["ConfigFinanciera | None"] = relationship(
+        back_populates="conjunto", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class ZonaAcceso(Base):
@@ -225,3 +228,169 @@ class HuellaDigital(Base):
     )
 
     propietario: Mapped[Propietario] = relationship(back_populates="huella")
+
+
+class ConfigFinanciera(Base):
+    __tablename__ = "config_financiera"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    cuota_mensual_centavos: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default="0"
+    )
+    dia_vencimiento: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=5, server_default="5"
+    )
+    activo: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    conjunto: Mapped[ConjuntoResidencial] = relationship(back_populates="config_financiera")
+
+
+class ConceptoMovimiento(Base):
+    __tablename__ = "concepto_movimiento"
+    __table_args__ = (
+        UniqueConstraint("conjunto_id", "nombre", "tipo", name="uq_concepto_conjunto_nombre_tipo"),
+        CheckConstraint(
+            "tipo IN ('cargo', 'abono', 'ingreso', 'egreso')",
+            name="ck_concepto_movimiento_tipo",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    activo: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true", index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class MovimientoCartera(Base):
+    __tablename__ = "movimiento_cartera"
+    __table_args__ = (
+        CheckConstraint(
+            "tipo IN ('cargo', 'abono')",
+            name="ck_movimiento_cartera_tipo",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
+    propietario_id: Mapped[int] = mapped_column(
+        ForeignKey("propietarios.id"), nullable=False, index=True
+    )
+    concepto_id: Mapped[int | None] = mapped_column(
+        ForeignKey("concepto_movimiento.id"), nullable=True, index=True
+    )
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    monto_centavos: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    fecha: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    periodo: Mapped[str | None] = mapped_column(String(7), nullable=True, index=True)
+    referencia: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    notas: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    propietario: Mapped[Propietario] = relationship()
+    concepto: Mapped["ConceptoMovimiento | None"] = relationship()
+
+
+class MovimientoCaja(Base):
+    __tablename__ = "movimiento_caja"
+    __table_args__ = (
+        CheckConstraint(
+            "tipo IN ('ingreso', 'egreso')",
+            name="ck_movimiento_caja_tipo",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
+    concepto_id: Mapped[int | None] = mapped_column(
+        ForeignKey("concepto_movimiento.id"), nullable=True, index=True
+    )
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    monto_centavos: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    fecha: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    periodo: Mapped[str | None] = mapped_column(String(7), nullable=True, index=True)
+    referencia: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    notas: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    concepto: Mapped["ConceptoMovimiento | None"] = relationship()
+
+
+class AlertaFinanciera(Base):
+    __tablename__ = "alerta_financiera"
+    __table_args__ = (
+        CheckConstraint(
+            "tipo IN ('mora', 'vencimiento', 'sin_pago')",
+            name="ck_alerta_financiera_tipo",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
+    propietario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("propietarios.id"), nullable=True, index=True
+    )
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    mensaje: Mapped[str] = mapped_column(String(500), nullable=False)
+    leida: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false", index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+    propietario: Mapped["Propietario | None"] = relationship()

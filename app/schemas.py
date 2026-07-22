@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -343,3 +343,160 @@ class WebAuthnRegisterVerifyIn(BaseModel):
     type: str
     response: dict
     username: str | None = None
+
+
+# ── Finanzas ──────────────────────────────────────────────────────────────────
+
+class ConfigFinancieraOut(BaseModel):
+    id: int
+    conjunto_id: UUID
+    cuota_mensual_centavos: int
+    dia_vencimiento: int
+    activo: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ConfigFinancieraUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cuota_mensual_centavos: int = Field(ge=0)
+    dia_vencimiento: int = Field(ge=1, le=28)
+    activo: bool = True
+
+
+class ConceptoMovimientoOut(BaseModel):
+    id: int
+    nombre: str
+    tipo: str
+    activo: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ConceptoMovimientoCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    nombre: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=80)]
+    tipo: str = Field(pattern="^(cargo|abono|ingreso|egreso)$")
+
+
+class ConceptoMovimientoUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    nombre: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=2, max_length=80)
+    ] | None = None
+    activo: bool | None = None
+
+
+class GenerarCuotasIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    periodo: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^\d{4}-\d{2}$")]
+
+
+class GenerarCuotasOut(BaseModel):
+    periodo: str
+    creados: int
+    omitidos: int
+
+
+class CarteraItemOut(BaseModel):
+    propietario_id: int
+    uid: str
+    nombre: str
+    torre: str
+    apartamento: str
+    estado_cuenta: str
+    saldo_centavos: int
+    ultimo_pago: date | None = None
+    proximo_vencimiento: date | None = None
+    telegram_chat_id: str | None = None
+
+
+class MovimientoCarteraOut(BaseModel):
+    id: int
+    tipo: str
+    monto_centavos: int
+    fecha: date
+    periodo: str | None = None
+    referencia: str | None = None
+    notas: str | None = None
+    concepto_id: int | None = None
+    concepto_nombre: str | None = None
+    created_by: str | None = None
+    created_at: datetime
+    saldo_acumulado_centavos: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EstadoCuentaOut(BaseModel):
+    propietario_id: int
+    uid: str
+    nombre: str
+    torre: str
+    apartamento: str
+    estado_cuenta: str
+    saldo_centavos: int
+    movimientos: list[MovimientoCarteraOut]
+
+
+class MovimientoCarteraCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: str = Field(pattern="^(cargo|abono)$")
+    monto_centavos: int = Field(gt=0)
+    fecha: date
+    concepto_id: int | None = None
+    periodo: Annotated[
+        str, StringConstraints(strip_whitespace=True, pattern=r"^\d{4}-\d{2}$")
+    ] | None = None
+    referencia: Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)] | None = None
+    notas: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+
+class MovimientoCajaOut(BaseModel):
+    id: int
+    tipo: str
+    monto_centavos: int
+    fecha: date
+    periodo: str | None = None
+    referencia: str | None = None
+    notas: str | None = None
+    concepto_id: int | None = None
+    concepto_nombre: str | None = None
+    created_by: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MovimientoCajaCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: str = Field(pattern="^(ingreso|egreso)$")
+    monto_centavos: int = Field(gt=0)
+    fecha: date
+    concepto_id: int | None = None
+    periodo: Annotated[
+        str, StringConstraints(strip_whitespace=True, pattern=r"^\d{4}-\d{2}$")
+    ] | None = None
+    referencia: Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)] | None = None
+    notas: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+
+class AlertaFinancieraOut(BaseModel):
+    id: int
+    tipo: str
+    mensaje: str
+    leida: bool
+    propietario_id: int | None = None
+    propietario_nombre: str | None = None
+    propietario_uid: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

@@ -1,4 +1,16 @@
-import { BarChart3, Building2, Fingerprint, List, LogOut, PencilLine, Shield, UserCircle2, UserPlus } from 'lucide-react'
+import {
+  BarChart3,
+  Building2,
+  Fingerprint,
+  List,
+  LogOut,
+  PencilLine,
+  Settings2,
+  Shield,
+  UserCircle2,
+  UserPlus,
+  Wallet,
+} from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -11,16 +23,44 @@ const ROLE_META: Record<string, { label: string; dot: string }> = {
   vigilante: { label: 'Vigilante', dot: 'bg-emerald-400' },
 }
 
-const ADMIN_LINKS = [
+const ADMIN_ACCESO_LINKS = [
   { to: '/admin/metricas',               label: 'Métricas', icon: BarChart3 },
   { to: '/admin/propietarios',           label: 'Listar',    icon: List },
   { to: '/admin/registrar',              label: 'Registrar', icon: UserPlus },
   { to: '/admin/propietarios?mode=edit', label: 'Editar',    icon: PencilLine },
 ]
 
+const ADMIN_FINANZAS_LINKS = [
+  { to: '/admin/finanzas/cartera', label: 'Cartera', icon: Wallet },
+  { to: '/admin/finanzas/config',  label: 'Cuotas',  icon: Settings2 },
+]
+
+const ADMIN_MOBILE_LINKS = [
+  ...ADMIN_ACCESO_LINKS.slice(0, 3),
+  ADMIN_FINANZAS_LINKS[0],
+]
+
 const SUPERADMIN_LINKS = [
   { to: '/superadmin/conjuntos', label: 'Conjuntos', icon: Building2 },
 ]
+
+function linkActive(
+  to: string,
+  pathname: string,
+  search: string,
+  isEditMode: boolean,
+  label: string,
+): boolean {
+  if (label === 'Editar') return isEditMode
+  if (label === 'Listar') {
+    return pathname === '/admin/propietarios' && !isEditMode
+  }
+  const [path] = to.split('?')
+  if (path.startsWith('/admin/finanzas')) {
+    return pathname.startsWith(path) || (label === 'Cartera' && pathname.startsWith('/admin/finanzas/propietarios'))
+  }
+  return pathname === path && !search.includes('mode=edit')
+}
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
@@ -29,18 +69,25 @@ export default function Layout({ children }: { children: ReactNode }) {
   const isEditMode =
     location.pathname === '/admin/propietarios' &&
     new URLSearchParams(location.search).get('mode') === 'edit'
+  const isAdmin = user?.role === 'admin'
 
   const handleLogout = () => { logout(); navigate('/login', { replace: true }) }
   const roleMeta = user ? ROLE_META[user.role] : null
+
+  const sidebarLinkClass = (active: boolean) =>
+    `flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
+      active
+        ? 'bg-teal-50 text-teal-800 border border-teal-200'
+        : 'text-slate-600 hover:bg-surface-100 hover:text-slate-900 border border-transparent'
+    }`
 
   return (
     <div className="min-h-screen bg-surface-50 flex flex-col">
 
       {/* ── Navbar ────────────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 bg-gradient-premium shadow-float border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+        <div className={`${isAdmin ? 'max-w-[1400px]' : 'max-w-6xl'} mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4`}>
 
-          {/* Brand + links */}
           <div className="flex items-center gap-5 flex-shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-xl bg-white/95 backdrop-blur border border-white/25
@@ -51,24 +98,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                 Gestion de Acceso zonas Comunes
               </span>
             </div>
-
-            {user?.role === 'admin' && (
-              <div className="hidden sm:flex items-center gap-0.5">
-                {ADMIN_LINKS.map((link) => (
-                  <NavLink
-                    key={link.to}
-                    to={link.to}
-                    className={({ isActive }) =>
-                      `text-xs font-semibold px-3.5 py-2 rounded-xl transition-all duration-200 ${
-                        (link.label === 'Editar' ? isEditMode : isActive)
-                          ? 'bg-black/22 text-white shadow-sm'
-                          : 'text-white/60 hover:text-white hover:bg-black'
-                      }`
-                    }
-                  >{link.label}</NavLink>
-                ))}
-              </div>
-            )}
 
             {user?.role === 'superadmin' && (
               <div className="hidden sm:flex items-center gap-0.5">
@@ -89,7 +118,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             )}
           </div>
 
-          {/* Right */}
           <div className="flex items-center gap-2">
             {user && (
               <>
@@ -136,15 +164,15 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
 
         {/* Mobile admin links strip */}
-        {user?.role === 'admin' && (
+        {isAdmin && (
           <div className="sm:hidden border-t border-white/10 px-4 py-2 flex items-center gap-1.5 overflow-x-auto">
-            {ADMIN_LINKS.map((link) => (
+            {[...ADMIN_ACCESO_LINKS, ...ADMIN_FINANZAS_LINKS].map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
-                className={({ isActive }) =>
+                className={() =>
                   `whitespace-nowrap text-xs font-bold px-3 py-1.5 rounded-lg transition-colors duration-150 ${
-                    (link.label === 'Editar' ? isEditMode : isActive)
+                    linkActive(link.to, location.pathname, location.search, isEditMode, link.label)
                       ? 'bg-white/22 text-white'
                       : 'text-white/55 hover:text-white hover:bg-white/10'
                   }`
@@ -171,24 +199,58 @@ export default function Layout({ children }: { children: ReactNode }) {
         )}
       </nav>
 
-      {/* ── Content ───────────────────────────────────────────────────── */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-28 sm:pb-10">
-        {children}
-      </main>
+      {/* ── Body: sidebar + content (admin) ───────────────────────────── */}
+      <div className={`flex-1 w-full mx-auto ${isAdmin ? 'max-w-[1400px]' : 'max-w-6xl'} flex`}>
+        {isAdmin && (
+          <aside className="hidden sm:flex w-56 flex-shrink-0 flex-col gap-5 border-r border-surface-200 bg-white/80 px-3 py-6 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+            <div>
+              <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Acceso</p>
+              <nav className="space-y-1">
+                {ADMIN_ACCESO_LINKS.map((link) => {
+                  const Icon = link.icon
+                  const active = linkActive(link.to, location.pathname, location.search, isEditMode, link.label)
+                  return (
+                    <NavLink key={link.to} to={link.to} className={sidebarLinkClass(active)}>
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      {link.label}
+                    </NavLink>
+                  )
+                })}
+              </nav>
+            </div>
+            <div>
+              <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Finanzas</p>
+              <nav className="space-y-1">
+                {ADMIN_FINANZAS_LINKS.map((link) => {
+                  const Icon = link.icon
+                  const active = linkActive(link.to, location.pathname, location.search, isEditMode, link.label)
+                  return (
+                    <NavLink key={link.to} to={link.to} className={sidebarLinkClass(active)}>
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      {link.label}
+                    </NavLink>
+                  )
+                })}
+              </nav>
+            </div>
+          </aside>
+        )}
+
+        <main className={`flex-1 min-w-0 px-4 sm:px-6 py-6 sm:py-10 ${isAdmin ? 'pb-28 sm:pb-10' : 'pb-28 sm:pb-10'}`}>
+          {children}
+        </main>
+      </div>
 
       {/* ── Mobile bottom bar — Admin ────────────────────────────────── */}
-      {user?.role === 'admin' && (
+      {isAdmin && (
         <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 px-3 pb-4 pt-2
                         bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent">
           <div className="mx-auto max-w-sm rounded-[28px] bg-gradient-premium border border-white/15
                           p-1.5 shadow-float backdrop-blur-xl">
             <div className="grid grid-cols-5 gap-1">
-              {ADMIN_LINKS.map((link) => {
+              {ADMIN_MOBILE_LINKS.map((link) => {
                 const Icon = link.icon
-                const active =
-                  link.label === 'Editar'
-                    ? isEditMode
-                    : location.pathname === link.to.split('?')[0] && !isEditMode
+                const active = linkActive(link.to, location.pathname, location.search, isEditMode, link.label)
                 return (
                   <NavLink
                     key={link.to}
@@ -268,7 +330,6 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* ── Footer ────────────────────────────────────────────────────── */}
       <footer className="hidden sm:block border-t border-surface-200 py-4 bg-white/70">
         <p className="text-center text-slate-400 text-xs tracking-wide">
           © {new Date().getFullYear()} Sistema de Control de Acceso · Parqueadero Residencial

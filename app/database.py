@@ -13,9 +13,29 @@ Base = declarative_base()
 
 
 def _tenant_scoped_classes():
-    from app.models import HistorialAcceso, HuellaDigital, Propietario, ZonaAcceso
+    from app.models import (
+        AlertaFinanciera,
+        ConceptoMovimiento,
+        ConfigFinanciera,
+        HistorialAcceso,
+        HuellaDigital,
+        MovimientoCaja,
+        MovimientoCartera,
+        Propietario,
+        ZonaAcceso,
+    )
 
-    return (Propietario, HistorialAcceso, HuellaDigital, ZonaAcceso)
+    return (
+        Propietario,
+        HistorialAcceso,
+        HuellaDigital,
+        ZonaAcceso,
+        ConfigFinanciera,
+        ConceptoMovimiento,
+        MovimientoCartera,
+        MovimientoCaja,
+        AlertaFinanciera,
+    )
 
 
 @event.listens_for(Session, "do_orm_execute")

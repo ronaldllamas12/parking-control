@@ -5,6 +5,9 @@ import { AuthProvider } from './context/AuthContext'
 import Login from './pages/Login'
 import RegisterFingerprint from './pages/RegisterFingerprint'
 import AdminMetricas from './pages/admin/AdminMetricas'
+import FinanzasCartera from './pages/admin/FinanzasCartera'
+import FinanzasConfig from './pages/admin/FinanzasConfig'
+import FinanzasEstadoCuenta from './pages/admin/FinanzasEstadoCuenta'
 import ListarPropietarios from './pages/admin/ListarPropietarios'
 import RegistrarPropietario from './pages/admin/RegistrarPropietario'
 import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard'
@@ -53,6 +56,30 @@ export default function App() {
               element={
                 <Layout>
                   <ListarPropietarios />
+                </Layout>
+              }
+            />
+            <Route
+              path="/admin/finanzas/cartera"
+              element={
+                <Layout>
+                  <FinanzasCartera />
+                </Layout>
+              }
+            />
+            <Route
+              path="/admin/finanzas/config"
+              element={
+                <Layout>
+                  <FinanzasConfig />
+                </Layout>
+              }
+            />
+            <Route
+              path="/admin/finanzas/propietarios/:uid"
+              element={
+                <Layout>
+                  <FinanzasEstadoCuenta />
                 </Layout>
               }
             />
