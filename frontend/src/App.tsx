@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
 import Login from './pages/Login'
+import MensajesTelegram from './pages/MensajesTelegram'
 import RegisterFingerprint from './pages/RegisterFingerprint'
 import AdminMetricas from './pages/admin/AdminMetricas'
 import FinanzasCartera from './pages/admin/FinanzasCartera'
@@ -83,6 +84,14 @@ export default function App() {
                 </Layout>
               }
             />
+            <Route
+              path="/admin/mensajes"
+              element={
+                <Layout>
+                  <MensajesTelegram />
+                </Layout>
+              }
+            />
           </Route>
 
           {/* Vigilante-only routes */}
@@ -92,6 +101,14 @@ export default function App() {
               element={
                 <Layout>
                   <VerificarAcceso />
+                </Layout>
+              }
+            />
+            <Route
+              path="/vigilante/mensajes"
+              element={
+                <Layout>
+                  <MensajesTelegram />
                 </Layout>
               }
             />

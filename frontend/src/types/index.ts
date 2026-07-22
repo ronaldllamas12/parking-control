@@ -105,6 +105,35 @@ export interface TelegramLinkOut {
   bot_username: string
 }
 
+export interface TelegramConversationOut {
+  id: number
+  destino_role: 'admin' | 'vigilante'
+  estado: 'abierta' | 'cerrada'
+  propietario_id: number
+  propietario_uid: string
+  propietario_nombre: string
+  torre: string
+  apartamento: string
+  last_message_at: string
+  last_message_text?: string | null
+  unread_count: number
+}
+
+export interface TelegramMessageOut {
+  id: number
+  conversation_id: number
+  sender_role: 'propietario' | 'admin' | 'vigilante'
+  sender_username?: string | null
+  text: string
+  read_by_staff: boolean
+  created_at: string
+}
+
+export interface TelegramConversationDetailOut {
+  conversation: TelegramConversationOut
+  messages: TelegramMessageOut[]
+}
+
 export interface ZonaAcceso {
   id: number
   nombre: string

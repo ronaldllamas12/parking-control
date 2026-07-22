@@ -4,6 +4,7 @@ import {
   Fingerprint,
   List,
   LogOut,
+  MessageSquare,
   PencilLine,
   Settings2,
   Shield,
@@ -28,6 +29,7 @@ const ADMIN_ACCESO_LINKS = [
   { to: '/admin/propietarios',           label: 'Listar',    icon: List },
   { to: '/admin/registrar',              label: 'Registrar', icon: UserPlus },
   { to: '/admin/propietarios?mode=edit', label: 'Editar',    icon: PencilLine },
+  { to: '/admin/mensajes',               label: 'Mensajes',  icon: MessageSquare },
 ]
 
 const ADMIN_FINANZAS_LINKS = [
@@ -37,7 +39,7 @@ const ADMIN_FINANZAS_LINKS = [
 
 const ADMIN_MOBILE_LINKS = [
   ...ADMIN_ACCESO_LINKS.slice(0, 3),
-  ADMIN_FINANZAS_LINKS[0],
+  ADMIN_ACCESO_LINKS[4],
 ]
 
 const SUPERADMIN_LINKS = [
@@ -70,6 +72,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     location.pathname === '/admin/propietarios' &&
     new URLSearchParams(location.search).get('mode') === 'edit'
   const isAdmin = user?.role === 'admin'
+  const isVigilante = user?.role === 'vigilante'
 
   const handleLogout = () => { logout(); navigate('/login', { replace: true }) }
   const roleMeta = user ? ROLE_META[user.role] : null
@@ -135,17 +138,32 @@ export default function Layout({ children }: { children: ReactNode }) {
                 </div>
 
                 {user.role !== 'superadmin' && (
-                  <NavLink
-                    to={FINGERPRINT_LINK.to}
-                    title="Registrar huella"
-                    className={({ isActive }) =>
-                      `w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                        isActive ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
-                      }`
-                    }
-                  >
-                    <Fingerprint className="w-4 h-4" />
-                  </NavLink>
+                  <>
+                    {isVigilante && (
+                      <NavLink
+                        to="/vigilante/mensajes"
+                        title="Mensajes"
+                        className={({ isActive }) =>
+                          `w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                            isActive ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
+                          }`
+                        }
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </NavLink>
+                    )}
+                    <NavLink
+                      to={FINGERPRINT_LINK.to}
+                      title="Registrar huella"
+                      className={({ isActive }) =>
+                        `w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                          isActive ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
+                        }`
+                      }
+                    >
+                      <Fingerprint className="w-4 h-4" />
+                    </NavLink>
+                  </>
                 )}
               </>
             )}
@@ -283,13 +301,14 @@ export default function Layout({ children }: { children: ReactNode }) {
       )}
 
       {/* ── Mobile bottom bar — Vigilante ───────────────────────────── */}
-      {user?.role === 'vigilante' && (
+      {isVigilante && (
         <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 px-3 pb-4 pt-2
                         bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent">
           <div className="mx-auto max-w-sm rounded-[28px] bg-gradient-premium border border-white/15
                           p-1.5 shadow-float backdrop-blur-xl">
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-3 gap-1">
               {[{ to: '/vigilante/verificar', label: 'Verificar', icon: Shield },
+                { to: '/vigilante/mensajes',  label: 'Mensajes',  icon: MessageSquare },
                 { to: '/perfil/huella',       label: 'Huella',    icon: Fingerprint }
               ].map(({ to, label, icon: Icon }) => (
                 <NavLink

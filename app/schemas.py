@@ -246,6 +246,43 @@ class TelegramNotificationOut(BaseModel):
     detail: str
 
 
+class TelegramConversationOut(BaseModel):
+    id: int
+    destino_role: str
+    estado: str
+    propietario_id: int
+    propietario_uid: str
+    propietario_nombre: str
+    torre: str
+    apartamento: str
+    last_message_at: datetime
+    last_message_text: str | None = None
+    unread_count: int = 0
+
+
+class TelegramMessageOut(BaseModel):
+    id: int
+    conversation_id: int
+    sender_role: str
+    sender_username: str | None = None
+    text: str
+    read_by_staff: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TelegramConversationDetailOut(BaseModel):
+    conversation: TelegramConversationOut
+    messages: list[TelegramMessageOut]
+
+
+class TelegramConversationReplyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mensaje: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
 class RegistroAccesoOut(BaseModel):
     id: int
     propietario_id: int

@@ -65,9 +65,12 @@ async def send_message_direct(
     chat_id: str | int,
     text: str,
     parse_mode: str = "HTML",
+    reply_markup: dict | None = None,
 ) -> bool:
     """Send a plain text message to a chat using a specific bot token."""
     payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
 
     def _send() -> None:
         _do_post(_tg_url(bot_token, "sendMessage"), payload)

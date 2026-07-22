@@ -6,6 +6,7 @@ from uuid import UUID
 import bcrypt as _bcrypt
 from app import models, schemas
 from sqlalchemy import func, text
+from sqlalchemy.orm import joinedload
 from sqlalchemy.orm import Session
 
 
@@ -381,6 +382,12 @@ def delete_conjunto(db: Session, conjunto: models.ConjuntoResidencial) -> None:
 
     db.query(models.HistorialAcceso).filter(
         models.HistorialAcceso.conjunto_id == conjunto_id
+    ).delete(synchronize_session=False)
+    db.query(models.TelegramMessage).filter(
+        models.TelegramMessage.conjunto_id == conjunto_id
+    ).delete(synchronize_session=False)
+    db.query(models.TelegramConversation).filter(
+        models.TelegramConversation.conjunto_id == conjunto_id
     ).delete(synchronize_session=False)
     db.query(models.ZonaAcceso).filter(
         models.ZonaAcceso.conjunto_id == conjunto_id
@@ -759,4 +766,171 @@ def link_telegram_by_token(
     db.refresh(propietario)
     return propietario, None
 
+
+# ── Telegram conversations ───────────────────────────────────────────────────
+
+def get_propietario_by_telegram_chat_id(
+    db: Session, chat_id: str
+) -> Optional[models.Propietario]:
+    return (
+        db.query(models.Propietario)
+        .filter(models.Propietario.telegram_chat_id == chat_id)
+        .first()
+    )
+
+
+def get_or_create_telegram_conversation(
+    db: Session,
+    propietario: models.Propietario,
+    destino_role: str,
+) -> models.TelegramConversation:
+    conversation = (
+        db.query(models.TelegramConversation)
+        .filter(
+            models.TelegramConversation.propietario_id == propietario.id,
+            models.TelegramConversation.destino_role == destino_role,
+        )
+        .first()
+    )
+    if conversation:
+        if conversation.estado != "abierta":
+            conversation.estado = "abierta"
+            db.commit()
+            db.refresh(conversation)
+        return conversation
+
+    conversation = models.TelegramConversation(
+        conjunto_id=propietario.conjunto_id,
+        propietario_id=propietario.id,
+        destino_role=destino_role,
+    )
+    db.add(conversation)
+    db.commit()
+    db.refresh(conversation)
+    return conversation
+
+
+def add_telegram_message(
+    db: Session,
+    conversation: models.TelegramConversation,
+    sender_role: str,
+    text_value: str,
+    sender_username: str | None = None,
+    read_by_staff: bool = False,
+) -> models.TelegramMessage:
+    now = datetime.now(timezone.utc)
+    message = models.TelegramMessage(
+        conversation_id=conversation.id,
+        conjunto_id=conversation.conjunto_id,
+        propietario_id=conversation.propietario_id,
+        sender_role=sender_role,
+        sender_username=sender_username,
+        text=text_value,
+        read_by_staff=read_by_staff,
+        created_at=now,
+    )
+    conversation.last_message_at = now
+    conversation.estado = "abierta"
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    return message
+
+
+def get_telegram_conversation(
+    db: Session,
+    conversation_id: int,
+    conjunto_id: UUID,
+    destino_role: str,
+) -> Optional[models.TelegramConversation]:
+    return (
+        db.query(models.TelegramConversation)
+        .options(joinedload(models.TelegramConversation.propietario))
+        .filter(
+            models.TelegramConversation.id == conversation_id,
+            models.TelegramConversation.conjunto_id == conjunto_id,
+            models.TelegramConversation.destino_role == destino_role,
+        )
+        .first()
+    )
+
+
+def _telegram_conversation_out(
+    db: Session,
+    conversation: models.TelegramConversation,
+) -> schemas.TelegramConversationOut:
+    last_message = (
+        db.query(models.TelegramMessage)
+        .filter(models.TelegramMessage.conversation_id == conversation.id)
+        .order_by(models.TelegramMessage.created_at.desc())
+        .first()
+    )
+    unread_count = (
+        db.query(func.count(models.TelegramMessage.id))
+        .filter(
+            models.TelegramMessage.conversation_id == conversation.id,
+            models.TelegramMessage.sender_role == "propietario",
+            models.TelegramMessage.read_by_staff.is_(False),
+        )
+        .scalar()
+        or 0
+    )
+    propietario = conversation.propietario
+    return schemas.TelegramConversationOut(
+        id=conversation.id,
+        destino_role=conversation.destino_role,
+        estado=conversation.estado,
+        propietario_id=conversation.propietario_id,
+        propietario_uid=propietario.uid,
+        propietario_nombre=propietario.nombre,
+        torre=propietario.torre,
+        apartamento=propietario.apartamento,
+        last_message_at=conversation.last_message_at,
+        last_message_text=last_message.text if last_message else None,
+        unread_count=unread_count,
+    )
+
+
+def list_telegram_conversations(
+    db: Session,
+    conjunto_id: UUID,
+    destino_role: str,
+) -> list[schemas.TelegramConversationOut]:
+    conversations = (
+        db.query(models.TelegramConversation)
+        .options(joinedload(models.TelegramConversation.propietario))
+        .filter(
+            models.TelegramConversation.conjunto_id == conjunto_id,
+            models.TelegramConversation.destino_role == destino_role,
+        )
+        .order_by(models.TelegramConversation.last_message_at.desc())
+        .all()
+    )
+    return [_telegram_conversation_out(db, conversation) for conversation in conversations]
+
+
+def get_telegram_conversation_detail(
+    db: Session,
+    conversation: models.TelegramConversation,
+) -> schemas.TelegramConversationDetailOut:
+    messages = (
+        db.query(models.TelegramMessage)
+        .filter(models.TelegramMessage.conversation_id == conversation.id)
+        .order_by(models.TelegramMessage.created_at.asc())
+        .all()
+    )
+    db.query(models.TelegramMessage).filter(
+        models.TelegramMessage.conversation_id == conversation.id,
+        models.TelegramMessage.sender_role == "propietario",
+        models.TelegramMessage.read_by_staff.is_(False),
+    ).update({"read_by_staff": True}, synchronize_session=False)
+    db.commit()
+    for message in messages:
+        if message.sender_role == "propietario":
+            message.read_by_staff = True
+
+    return schemas.TelegramConversationDetailOut(
+        conversation=_telegram_conversation_out(db, conversation),
+        messages=messages,
+    )
 

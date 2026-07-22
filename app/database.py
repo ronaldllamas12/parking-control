@@ -22,6 +22,8 @@ def _tenant_scoped_classes():
         MovimientoCaja,
         MovimientoCartera,
         Propietario,
+        TelegramConversation,
+        TelegramMessage,
         ZonaAcceso,
     )
 
@@ -35,6 +37,8 @@ def _tenant_scoped_classes():
         MovimientoCartera,
         MovimientoCaja,
         AlertaFinanciera,
+        TelegramConversation,
+        TelegramMessage,
     )
 
 

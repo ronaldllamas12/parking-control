@@ -1,4 +1,5 @@
 import logging
+from html import escape
 
 from app import crud, models, schemas
 from app.database import get_db
@@ -21,6 +22,33 @@ _MSG_START = (
     "👋 Hola. Para vincular su cuenta escanee el código QR o presione el botón "
     "<b>Vincular Telegram</b> en el panel de administración."
 )
+
+_MENU_MARKUP = {
+    "keyboard": [["Administración", "Vigilante"]],
+    "resize_keyboard": True,
+    "one_time_keyboard": False,
+}
+
+_DESTINATION_LABELS = {
+    "admin": "administración",
+    "vigilante": "vigilante",
+}
+
+_active_destinations: dict[str, str] = {}
+
+
+def _destination_from_text(text: str) -> str | None:
+    normalized = text.strip().lower()
+    if normalized in {"administracion", "administración", "admin", "/admin"}:
+        return "admin"
+    if normalized in {"vigilante", "guardia", "/vigilante"}:
+        return "vigilante"
+    return None
+
+
+async def _send_owner_menu(bot_token: str, chat_id: str, prefix: str | None = None) -> None:
+    text = prefix or "Seleccione con quién quiere hablar:"
+    await send_message_direct(bot_token, chat_id, text, reply_markup=_MENU_MARKUP)
 
 
 # ── Webhook ───────────────────────────────────────────────────────────────────
@@ -47,59 +75,195 @@ async def telegram_webhook(
     logger.info("Texto recibido: %s", text)
     logger.info("Chat ID: %s", chat_id)
     
-    if not chat_id or not text.startswith("/start"):
+    if not chat_id:
         return {"ok": True}
-    
-    parts = text.split(maxsplit=1)
-    token = parts[1].strip() if len(parts) > 1 else None
-    
-    logger.info("Token recibido: %s", token)
-    
-    if not token:
-        return {"ok": True}
-    # Locate propietario BEFORE linking so we can get the bot token even on failure
-    candidate = (
-        db.query(models.Propietario)
-        .filter(models.Propietario.telegram_link_token == token)
-        .first()
-    )
 
-    bot_token: str | None = None
-    if candidate:
-        conjunto = crud.get_conjunto_by_id(db, candidate.conjunto_id)
-        if conjunto and conjunto.telegram_bot_token:
-            bot_token = conjunto.telegram_bot_token
-        elif conjunto and not conjunto.telegram_bot_token:
-            logger.warning(
-                "Conjunto id=%s sin telegram_bot_token configurado", candidate.conjunto_id
-            )
+    if text.startswith("/start"):
+        parts = text.split(maxsplit=1)
+        token = parts[1].strip() if len(parts) > 1 else None
 
-    # Attempt the actual link
-    propietario, error_msg = crud.link_telegram_by_token(db, token, chat_id)
+        if not token:
+            propietario = crud.get_propietario_by_telegram_chat_id(db, chat_id)
+            if propietario:
+                conjunto = crud.get_conjunto_by_id(db, propietario.conjunto_id)
+                if conjunto and conjunto.telegram_bot_token:
+                    await _send_owner_menu(conjunto.telegram_bot_token, chat_id)
+            return {"ok": True}
 
-    if bot_token:
-        if propietario:
-            await send_message_direct(bot_token, chat_id, _MSG_OK)
-            logger.info(
-                "Telegram vinculado propietario_id=%s chat_id=%s", propietario.id, chat_id
-            )
-        elif error_msg:
-            await send_message_direct(bot_token, chat_id, f"❌ {error_msg}")
-            logger.warning(
-                "Vinculacion fallida token=%s...%s chat_id=%s error=%s",
-                token[:6],
-                token[-4:],
-                chat_id,
-                error_msg,
-            )
-    else:
-        logger.warning(
-            "No se encontro bot_token para responder al webhook token=%s...%s",
-            token[:6],
-            token[-4:],
+        logger.info("Token recibido: %s", token)
+
+        # Locate propietario BEFORE linking so we can get the bot token even on failure
+        candidate = (
+            db.query(models.Propietario)
+            .filter(models.Propietario.telegram_link_token == token)
+            .first()
         )
 
+        bot_token: str | None = None
+        if candidate:
+            conjunto = crud.get_conjunto_by_id(db, candidate.conjunto_id)
+            if conjunto and conjunto.telegram_bot_token:
+                bot_token = conjunto.telegram_bot_token
+            elif conjunto and not conjunto.telegram_bot_token:
+                logger.warning(
+                    "Conjunto id=%s sin telegram_bot_token configurado", candidate.conjunto_id
+                )
+
+        # Attempt the actual link
+        propietario, error_msg = crud.link_telegram_by_token(db, token, chat_id)
+
+        if bot_token:
+            if propietario:
+                await send_message_direct(bot_token, chat_id, _MSG_OK)
+                await _send_owner_menu(
+                    bot_token,
+                    chat_id,
+                    "Ahora seleccione con quién quiere hablar:",
+                )
+                logger.info(
+                    "Telegram vinculado propietario_id=%s chat_id=%s", propietario.id, chat_id
+                )
+            elif error_msg:
+                await send_message_direct(bot_token, chat_id, f"❌ {error_msg}")
+                logger.warning(
+                    "Vinculacion fallida token=%s...%s chat_id=%s error=%s",
+                    token[:6],
+                    token[-4:],
+                    chat_id,
+                    error_msg,
+                )
+        else:
+            logger.warning(
+                "No se encontro bot_token para responder al webhook token=%s...%s",
+                token[:6],
+                token[-4:],
+            )
+
+        return {"ok": True}
+
+    propietario = crud.get_propietario_by_telegram_chat_id(db, chat_id)
+    if not propietario:
+        return {"ok": True}
+
+    conjunto = crud.get_conjunto_by_id(db, propietario.conjunto_id)
+    if not conjunto or not conjunto.telegram_bot_token:
+        logger.warning("Propietario id=%s sin bot token asociado", propietario.id)
+        return {"ok": True}
+
+    destination = _destination_from_text(text)
+    if destination:
+        _active_destinations[chat_id] = destination
+        crud.get_or_create_telegram_conversation(db, propietario, destination)
+        await send_message_direct(
+            conjunto.telegram_bot_token,
+            chat_id,
+            f"Escriba su mensaje para {_DESTINATION_LABELS[destination]}.",
+            reply_markup=_MENU_MARKUP,
+        )
+        return {"ok": True}
+
+    destination = _active_destinations.get(chat_id)
+    if not destination:
+        await _send_owner_menu(conjunto.telegram_bot_token, chat_id)
+        return {"ok": True}
+
+    conversation = crud.get_or_create_telegram_conversation(db, propietario, destination)
+    crud.add_telegram_message(
+        db,
+        conversation,
+        sender_role="propietario",
+        text_value=text,
+        read_by_staff=False,
+    )
+    await send_message_direct(
+        conjunto.telegram_bot_token,
+        chat_id,
+        f"Mensaje enviado a {_DESTINATION_LABELS[destination]}.",
+        reply_markup=_MENU_MARKUP,
+    )
     return {"ok": True}
+
+
+@router.get(
+    "/conversaciones",
+    response_model=list[schemas.TelegramConversationOut],
+)
+def listar_conversaciones(
+    current_user=Depends(role_required(["admin", "vigilante"])),
+    db: Session = Depends(get_db),
+):
+    return crud.list_telegram_conversations(
+        db,
+        conjunto_id=current_user.conjunto_id,
+        destino_role=current_user.role,
+    )
+
+
+@router.get(
+    "/conversaciones/{conversation_id}",
+    response_model=schemas.TelegramConversationDetailOut,
+)
+def obtener_conversacion(
+    conversation_id: int,
+    current_user=Depends(role_required(["admin", "vigilante"])),
+    db: Session = Depends(get_db),
+):
+    conversation = crud.get_telegram_conversation(
+        db,
+        conversation_id=conversation_id,
+        conjunto_id=current_user.conjunto_id,
+        destino_role=current_user.role,
+    )
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+    return crud.get_telegram_conversation_detail(db, conversation)
+
+
+@router.post(
+    "/conversaciones/{conversation_id}/responder",
+    response_model=schemas.TelegramMessageOut,
+)
+async def responder_conversacion(
+    conversation_id: int,
+    payload: schemas.TelegramConversationReplyIn,
+    current_user=Depends(role_required(["admin", "vigilante"])),
+    db: Session = Depends(get_db),
+):
+    conversation = crud.get_telegram_conversation(
+        db,
+        conversation_id=conversation_id,
+        conjunto_id=current_user.conjunto_id,
+        destino_role=current_user.role,
+    )
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+
+    propietario = conversation.propietario
+    if not propietario.telegram_chat_id:
+        raise HTTPException(status_code=400, detail="El propietario no tiene Telegram vinculado")
+
+    conjunto = crud.get_conjunto_by_id(db, current_user.conjunto_id)
+    if not conjunto or not conjunto.telegram_bot_token:
+        raise HTTPException(status_code=400, detail="El conjunto no tiene token de bot Telegram configurado")
+
+    label = "Administración" if current_user.role == "admin" else "Vigilante"
+    sent = await send_message_direct(
+        conjunto.telegram_bot_token,
+        propietario.telegram_chat_id,
+        f"<b>{label}:</b>\n{escape(payload.mensaje)}",
+        reply_markup=_MENU_MARKUP,
+    )
+    if not sent:
+        raise HTTPException(status_code=502, detail="No se pudo enviar el mensaje por Telegram")
+
+    return crud.add_telegram_message(
+        db,
+        conversation,
+        sender_role=current_user.role,
+        sender_username=current_user.username,
+        text_value=payload.mensaje,
+        read_by_staff=True,
+    )
 
 
 # ── Set webhook ───────────────────────────────────────────────────────────────

@@ -163,6 +163,98 @@ class Propietario(Base):
     huella: Mapped["HuellaDigital | None"] = relationship(
         back_populates="propietario", cascade="all, delete-orphan", uselist=False
     )
+    conversaciones_telegram: Mapped[list["TelegramConversation"]] = relationship(
+        back_populates="propietario", cascade="all, delete-orphan"
+    )
+
+
+class TelegramConversation(Base):
+    __tablename__ = "telegram_conversations"
+    __table_args__ = (
+        UniqueConstraint(
+            "propietario_id",
+            "destino_role",
+            name="uq_telegram_conversations_propietario_destino",
+        ),
+        CheckConstraint(
+            "destino_role IN ('admin', 'vigilante')",
+            name="ck_telegram_conversations_destino_role",
+        ),
+        CheckConstraint(
+            "estado IN ('abierta', 'cerrada')",
+            name="ck_telegram_conversations_estado",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
+    propietario_id: Mapped[int] = mapped_column(
+        ForeignKey("propietarios.id"), nullable=False, index=True
+    )
+    destino_role: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    estado: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="abierta", server_default="abierta", index=True
+    )
+    last_message_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    propietario: Mapped[Propietario] = relationship(back_populates="conversaciones_telegram")
+    mensajes: Mapped[list["TelegramMessage"]] = relationship(
+        back_populates="conversacion", cascade="all, delete-orphan"
+    )
+
+
+class TelegramMessage(Base):
+    __tablename__ = "telegram_messages"
+    __table_args__ = (
+        CheckConstraint(
+            "sender_role IN ('propietario', 'admin', 'vigilante')",
+            name="ck_telegram_messages_sender_role",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("telegram_conversations.id"), nullable=False, index=True
+    )
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
+    propietario_id: Mapped[int] = mapped_column(
+        ForeignKey("propietarios.id"), nullable=False, index=True
+    )
+    sender_role: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    sender_username: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    read_by_staff: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false", index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+    conversacion: Mapped[TelegramConversation] = relationship(back_populates="mensajes")
+    propietario: Mapped[Propietario] = relationship()
 
 
 class HistorialAcceso(Base):

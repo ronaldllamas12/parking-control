@@ -1,4 +1,10 @@
-import type { PropietarioOut, TelegramLinkOut } from '../types'
+import type {
+  PropietarioOut,
+  TelegramConversationDetailOut,
+  TelegramConversationOut,
+  TelegramLinkOut,
+  TelegramMessageOut,
+} from '../types'
 import apiClient from './axios'
 
 /** POST /api/v1/propietarios/{uid}/telegram-link */
@@ -34,5 +40,23 @@ export async function configurarWebhook(
   base_url: string,
 ): Promise<{ ok: boolean; webhook_url: string }> {
   const { data } = await apiClient.post('/api/v1/telegram/set-webhook', { base_url })
+  return data
+}
+
+export async function listarConversacionesTelegram(): Promise<TelegramConversationOut[]> {
+  const { data } = await apiClient.get<TelegramConversationOut[]>('/api/v1/telegram/conversaciones')
+  return data
+}
+
+export async function obtenerConversacionTelegram(id: number): Promise<TelegramConversationDetailOut> {
+  const { data } = await apiClient.get<TelegramConversationDetailOut>(`/api/v1/telegram/conversaciones/${id}`)
+  return data
+}
+
+export async function responderConversacionTelegram(id: number, mensaje: string): Promise<TelegramMessageOut> {
+  const { data } = await apiClient.post<TelegramMessageOut>(
+    `/api/v1/telegram/conversaciones/${id}/responder`,
+    { mensaje },
+  )
   return data
 }
