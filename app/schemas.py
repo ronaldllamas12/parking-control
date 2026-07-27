@@ -346,6 +346,25 @@ class UserOut(BaseModel):
     username: str
     role: str
     conjunto_id: UUID | None = None
+    propietario_id: int | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PropietarioCuentaCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    username: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=3, max_length=50)
+    ]
+    password: Annotated[str, StringConstraints(min_length=8, max_length=128)]
+
+
+class PropietarioCuentaOut(BaseModel):
+    id: int
+    username: str
+    propietario_uid: str
+    propietario_nombre: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -390,6 +409,7 @@ class ConfigFinancieraOut(BaseModel):
     cuota_mensual_centavos: int
     dia_vencimiento: int
     activo: bool
+    payment_link_url: str | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -401,6 +421,9 @@ class ConfigFinancieraUpdate(BaseModel):
     cuota_mensual_centavos: int = Field(ge=0)
     dia_vencimiento: int = Field(ge=1, le=28)
     activo: bool = True
+    payment_link_url: Annotated[
+        str, StringConstraints(strip_whitespace=True, max_length=500)
+    ] | None = None
 
 
 class ConceptoMovimientoOut(BaseModel):
@@ -480,6 +503,32 @@ class EstadoCuentaOut(BaseModel):
     estado_cuenta: str
     saldo_centavos: int
     movimientos: list[MovimientoCarteraOut]
+
+
+class PropietarioDashboardOut(BaseModel):
+    propietario: PropietarioOut
+    estado_cuenta: EstadoCuentaOut
+    payment_link_url: str | None = None
+    proximo_vencimiento: date | None = None
+    ultimo_pago: date | None = None
+
+
+class PropietarioMensajeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mensaje: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
+class ComprobantePagoOut(BaseModel):
+    id: int
+    imagen_url: str
+    mensaje: str | None = None
+    referencia: str | None = None
+    monto_centavos: int | None = None
+    estado: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MovimientoCarteraCreate(BaseModel):

@@ -11,6 +11,7 @@ import FinanzasConfig from './pages/admin/FinanzasConfig'
 import FinanzasEstadoCuenta from './pages/admin/FinanzasEstadoCuenta'
 import ListarPropietarios from './pages/admin/ListarPropietarios'
 import RegistrarPropietario from './pages/admin/RegistrarPropietario'
+import PropietarioDashboard from './pages/propietario/PropietarioDashboard'
 import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard'
 import VerificarAcceso from './pages/vigilante/VerificarAcceso'
 
@@ -29,6 +30,18 @@ export default function App() {
               element={
                 <Layout>
                   <SuperAdminDashboard />
+                </Layout>
+              }
+            />
+          </Route>
+
+          {/* Propietario-only routes */}
+          <Route element={<ProtectedRoute allowedRoles={['propietario']} />}>
+            <Route
+              path="/propietario/dashboard"
+              element={
+                <Layout>
+                  <PropietarioDashboard />
                 </Layout>
               }
             />

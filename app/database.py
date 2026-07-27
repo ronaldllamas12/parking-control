@@ -1,31 +1,31 @@
 from typing import Generator
 
-from sqlalchemy import create_engine, event, text
-from sqlalchemy.orm import Session, declarative_base, sessionmaker, with_loader_criteria
-
 from app.config import get_settings
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.orm import (Session, declarative_base, sessionmaker,
+                            with_loader_criteria)
 
 settings = get_settings()
 
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+engine = create_engine(
+    settings.database_url,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=10,          # fail fast if no connection is available in 10 s
+    pool_recycle=1800,        # recycle connections every 30 min
+    connect_args={"connect_timeout": 10},  # TCP-level connect timeout
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
 def _tenant_scoped_classes():
-    from app.models import (
-        AlertaFinanciera,
-        ConceptoMovimiento,
-        ConfigFinanciera,
-        HistorialAcceso,
-        HuellaDigital,
-        MovimientoCaja,
-        MovimientoCartera,
-        Propietario,
-        TelegramConversation,
-        TelegramMessage,
-        ZonaAcceso,
-    )
+    from app.models import (AlertaFinanciera, ComprobantePago,
+                            ConceptoMovimiento, ConfigFinanciera,
+                            HistorialAcceso, HuellaDigital, MovimientoCaja,
+                            MovimientoCartera, Propietario,
+                            TelegramConversation, TelegramMessage, ZonaAcceso)
 
     return (
         Propietario,
@@ -37,6 +37,7 @@ def _tenant_scoped_classes():
         MovimientoCartera,
         MovimientoCaja,
         AlertaFinanciera,
+        ComprobantePago,
         TelegramConversation,
         TelegramMessage,
     )

@@ -7,6 +7,7 @@ import {
   Filter,
   Fingerprint,
   Home,
+  KeyRound,
   MessageSquare,
   Phone,
   Plus,
@@ -21,13 +22,14 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { read as xlsxRead, utils as xlsxUtils, writeFile as xlsxWriteFile } from 'xlsx'
 import {
   actualizarAmenidadesPropietario,
   actualizarEstadoBulk,
   actualizarPropietario,
+  crearCuentaPropietario,
   descargarPazYSalvo,
   eliminarHuella,
   eliminarPropietario,
@@ -728,6 +730,82 @@ function DeleteConfirm({ item, onClose, onDeleted }: DeleteConfirmProps) {
   )
 }
 
+// ── OwnerAccountModal ─────────────────────────────────────────────────────────
+interface OwnerAccountModalProps {
+  item: PropietarioOut
+  onClose: () => void
+  onSaved: (message: string) => void
+}
+
+function defaultOwnerUsername(item: PropietarioOut): string {
+  return `residente_${item.torre}_${item.apartamento}`.toLowerCase()
+}
+
+function OwnerAccountModal({ item, onClose, onSaved }: OwnerAccountModalProps) {
+  const [username, setUsername] = useState(defaultOwnerUsername(item))
+  const [password, setPassword] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (password.length < 8) {
+      setError('La contraseña debe tener mínimo 8 caracteres')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      const account = await crearCuentaPropietario(item.uid, { username, password })
+      onSaved(`Cuenta lista para ${item.nombre}: usuario ${account.username}`)
+      onClose()
+    } catch (err) {
+      const axiosErr = err as AxiosError<ApiErrorBody>
+      setError(axiosErr.response?.data?.detail ?? 'No se pudo crear la cuenta')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md">
+      <div className="card-lg w-full max-w-md animate-scale-in overflow-hidden">
+        <div className="bg-gradient-premium px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <KeyRound className="w-5 h-5 text-white" />
+            <h2 className="text-white font-bold text-base">Cuenta de residente</h2>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <form onSubmit={(event) => { void handleSubmit(event) }} className="p-5 space-y-4">
+          <div className="rounded-2xl border border-surface-200 bg-surface-50 p-3">
+            <p className="text-sm font-bold text-slate-800">{item.nombre}</p>
+            <p className="text-xs text-slate-500">Torre {item.torre} · Apto {item.apartamento}</p>
+          </div>
+          <div>
+            <label className="field-label">Usuario</label>
+            <input className="field" value={username} onChange={(e) => setUsername(e.target.value.trim())} required />
+          </div>
+          <div>
+            <label className="field-label">Contraseña inicial</label>
+            <input className="field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required />
+            <p className="mt-1 text-xs text-slate-400">Entrégala al residente por un canal privado.</p>
+          </div>
+          {error && <p className="field-error">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-cancel flex-1">Cancelar</button>
+            <button type="submit" disabled={saving} className="btn-primary flex-1">
+              {saving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <KeyRound className="w-4 h-4" />}
+              Guardar cuenta
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ListarPropietarios() {
   const [propietarios, setPropietarios] = useState<PropietarioOut[]>([])
@@ -738,6 +816,7 @@ export default function ListarPropietarios() {
   const [fpEditing, setFpEditing] = useState<PropietarioOut | null>(null)
   const [tgLinking, setTgLinking] = useState<PropietarioOut | null>(null)
   const [notifyTarget, setNotifyTarget] = useState<PropietarioOut | null>(null)
+  const [accountTarget, setAccountTarget] = useState<PropietarioOut | null>(null)
   const [downloadingQrUid, setDownloadingQrUid] = useState<string | null>(null)
   const [downloadingPazUid, setDownloadingPazUid] = useState<string | null>(null)
   const [togglingUid, setTogglingUid] = useState<string | null>(null)
@@ -1268,6 +1347,14 @@ export default function ListarPropietarios() {
                   <MessageSquare className="w-3.5 h-3.5" />
                 </button>
                 <button
+                  onClick={() => setAccountTarget(p)}
+                  className="w-8 h-8 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition-colors"
+                  aria-label="Crear cuenta de residente"
+                  title="Crear o resetear cuenta de residente"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                </button>
+                <button
                   onClick={() => { void handleDownloadPazYSalvo(p) }}
                   disabled={downloadingPazUid === p.uid || p.estado_cuenta !== 'al_dia'}
                   className="w-8 h-8 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-600 flex items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-40"
@@ -1320,6 +1407,13 @@ export default function ListarPropietarios() {
           defaultMessage={adminDefaultMessage(notifyTarget)}
           onClose={() => setNotifyTarget(null)}
           onSend={handleNotifySend}
+        />
+      )}
+      {accountTarget && (
+        <OwnerAccountModal
+          item={accountTarget}
+          onClose={() => setAccountTarget(null)}
+          onSaved={(msg) => setNotice(msg)}
         />
       )}
       {editing && (

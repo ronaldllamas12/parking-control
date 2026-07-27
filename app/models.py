@@ -66,7 +66,7 @@ class User(Base):
     __table_args__ = (
         CheckConstraint(
             "(role = 'superadmin' AND conjunto_id IS NULL) OR "
-            "(role IN ('admin', 'vigilante') AND conjunto_id IS NOT NULL)",
+            "(role IN ('admin', 'vigilante', 'propietario') AND conjunto_id IS NOT NULL)",
             name="ck_users_role_conjunto_scope",
         ),
     )
@@ -83,8 +83,12 @@ class User(Base):
     )
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    propietario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("propietarios.id"), nullable=True, unique=True, index=True
+    )
 
     conjunto: Mapped[ConjuntoResidencial | None] = relationship(back_populates="usuarios")
+    propietario: Mapped["Propietario | None"] = relationship()
 
 
 class WebAuthnCredential(Base):
@@ -257,6 +261,42 @@ class TelegramMessage(Base):
     propietario: Mapped[Propietario] = relationship()
 
 
+class ComprobantePago(Base):
+    __tablename__ = "comprobantes_pago"
+    __table_args__ = (
+        CheckConstraint(
+            "estado IN ('recibido', 'en_revision', 'aprobado', 'rechazado')",
+            name="ck_comprobantes_pago_estado",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
+    propietario_id: Mapped[int] = mapped_column(
+        ForeignKey("propietarios.id"), nullable=False, index=True
+    )
+    imagen_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    mensaje: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    referencia: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    monto_centavos: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    estado: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="recibido", server_default="recibido", index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+    propietario: Mapped[Propietario] = relationship()
+
+
 class HistorialAcceso(Base):
     __tablename__ = "historial_accesos"
     __table_args__ = (
@@ -342,6 +382,7 @@ class ConfigFinanciera(Base):
     activo: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
+    payment_link_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

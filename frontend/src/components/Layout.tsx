@@ -22,6 +22,7 @@ const ROLE_META: Record<string, { label: string; dot: string }> = {
   superadmin: { label: 'Super Admin', dot: 'bg-sky-400' },
   admin:     { label: 'Admin',     dot: 'bg-amber-400' },
   vigilante: { label: 'Vigilante', dot: 'bg-emerald-400' },
+  propietario: { label: 'Propietario', dot: 'bg-blue-400' },
 }
 
 const ADMIN_ACCESO_LINKS = [
@@ -73,6 +74,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     new URLSearchParams(location.search).get('mode') === 'edit'
   const isAdmin = user?.role === 'admin'
   const isVigilante = user?.role === 'vigilante'
+  const isPropietario = user?.role === 'propietario'
 
   const handleLogout = () => { logout(); navigate('/login', { replace: true }) }
   const roleMeta = user ? ROLE_META[user.role] : null
@@ -137,8 +139,21 @@ export default function Layout({ children }: { children: ReactNode }) {
                   )}
                 </div>
 
-                {user.role !== 'superadmin' && (
+                {(isAdmin || isVigilante || isPropietario) && (
                   <>
+                    {isPropietario && (
+                      <NavLink
+                        to="/propietario/dashboard"
+                        title="Mi dashboard"
+                        className={({ isActive }) =>
+                          `w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                            isActive ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
+                          }`
+                        }
+                      >
+                        <Wallet className="w-4 h-4" />
+                      </NavLink>
+                    )}
                     {isVigilante && (
                       <NavLink
                         to="/vigilante/mensajes"
@@ -152,17 +167,19 @@ export default function Layout({ children }: { children: ReactNode }) {
                         <MessageSquare className="w-4 h-4" />
                       </NavLink>
                     )}
-                    <NavLink
-                      to={FINGERPRINT_LINK.to}
-                      title="Registrar huella"
-                      className={({ isActive }) =>
-                        `w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                          isActive ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
-                        }`
-                      }
-                    >
-                      <Fingerprint className="w-4 h-4" />
-                    </NavLink>
+                    {(isAdmin || isVigilante) && (
+                      <NavLink
+                        to={FINGERPRINT_LINK.to}
+                        title="Registrar huella"
+                        className={({ isActive }) =>
+                          `w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                            isActive ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
+                          }`
+                        }
+                      >
+                        <Fingerprint className="w-4 h-4" />
+                      </NavLink>
+                    )}
                   </>
                 )}
               </>
@@ -325,6 +342,26 @@ export default function Layout({ children }: { children: ReactNode }) {
                 </NavLink>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {isPropietario && (
+        <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 px-3 pb-4 pt-2
+                        bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent">
+          <div className="mx-auto max-w-sm rounded-[28px] bg-gradient-premium border border-white/15
+                          p-1.5 shadow-float backdrop-blur-xl">
+            <NavLink
+              to="/propietario/dashboard"
+              className={({ isActive }) =>
+                `flex items-center justify-center gap-2 rounded-[20px] py-3 text-xs font-bold tracking-wide transition-all duration-200 ${
+                  isActive ? 'bg-white text-brand-700 shadow-brand' : 'text-white/65 hover:text-white hover:bg-white/10'
+                }`
+              }
+            >
+              <Wallet className="h-4 w-4" />
+              <span>Mi cuenta</span>
+            </NavLink>
           </div>
         </div>
       )}

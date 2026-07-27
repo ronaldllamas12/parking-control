@@ -3,6 +3,7 @@ import type {
   BulkStatusItem,
   BulkStatusResult,
   HuellaTemplate,
+  PropietarioCuentaOut,
   PropietarioOut,
   PropietarioUpdate,
 } from '../types'
@@ -89,6 +90,17 @@ export async function descargarPazYSalvo(uid: string): Promise<Blob> {
 /** POST /api/v1/propietarios/{uid}/notificar */
 export async function notificarPropietario(uid: string, mensaje: string): Promise<void> {
   await apiClient.post(`/api/v1/propietarios/${uid}/notificar`, { mensaje })
+}
+
+export async function crearCuentaPropietario(
+  uid: string,
+  payload: { username: string; password: string },
+): Promise<PropietarioCuentaOut> {
+  const { data } = await apiClient.post<PropietarioCuentaOut>(
+    `/api/v1/propietarios/${uid}/cuenta`,
+    payload,
+  )
+  return data
 }
 
 /** POST /api/v1/propietarios/bulk */

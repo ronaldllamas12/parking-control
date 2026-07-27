@@ -61,6 +61,7 @@ def get_or_create_config(db: Session, conjunto_id: UUID) -> models.ConfigFinanci
         cuota_mensual_centavos=0,
         dia_vencimiento=5,
         activo=True,
+        payment_link_url=None,
         created_at=datetime.now(timezone.utc),
     )
     db.add(config)
@@ -78,6 +79,7 @@ def update_config(
     config.cuota_mensual_centavos = payload.cuota_mensual_centavos
     config.dia_vencimiento = payload.dia_vencimiento
     config.activo = payload.activo
+    config.payment_link_url = payload.payment_link_url or None
     db.commit()
     db.refresh(config)
     return config
@@ -401,6 +403,32 @@ def estado_cuenta(db: Session, conjunto_id: UUID, uid: str) -> schemas.EstadoCue
         estado_cuenta="en_mora" if running > 0 else "al_dia",
         saldo_centavos=running,
         movimientos=out_movs,
+    )
+
+
+def resumen_propietario_dashboard(
+    db: Session, propietario: models.Propietario
+) -> schemas.PropietarioDashboardOut:
+    config = get_or_create_config(db, propietario.conjunto_id)
+    cuenta = estado_cuenta(db, propietario.conjunto_id, propietario.uid)
+    if cuenta is None:
+        cuenta = schemas.EstadoCuentaOut(
+            propietario_id=propietario.id,
+            uid=propietario.uid,
+            nombre=propietario.nombre,
+            torre=propietario.torre,
+            apartamento=propietario.apartamento,
+            estado_cuenta=propietario.estado_cuenta,
+            saldo_centavos=0,
+            movimientos=[],
+        )
+    ultimo_pago = next((m.fecha for m in reversed(cuenta.movimientos) if m.tipo == "abono"), None)
+    return schemas.PropietarioDashboardOut(
+        propietario=propietario,
+        estado_cuenta=cuenta,
+        payment_link_url=config.payment_link_url,
+        proximo_vencimiento=_proximo_vencimiento(config.dia_vencimiento),
+        ultimo_pago=ultimo_pago,
     )
 
 

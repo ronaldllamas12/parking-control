@@ -18,6 +18,7 @@ export default function FinanzasConfig() {
   const [config, setConfig] = useState<ConfigFinancieraOut | null>(null)
   const [cuotaCop, setCuotaCop] = useState('')
   const [diaVencimiento, setDiaVencimiento] = useState('5')
+  const [paymentLinkUrl, setPaymentLinkUrl] = useState('')
   const [activo, setActivo] = useState(true)
   const [periodo, setPeriodo] = useState(currentPeriodo())
   const [loading, setLoading] = useState(true)
@@ -35,6 +36,7 @@ export default function FinanzasConfig() {
         setConfig(data)
         setCuotaCop(String(Math.round(data.cuota_mensual_centavos / 100)))
         setDiaVencimiento(String(data.dia_vencimiento))
+        setPaymentLinkUrl(data.payment_link_url ?? '')
         setActivo(data.activo)
       } catch (err) {
         const axiosErr = err as AxiosError<ApiErrorBody>
@@ -65,6 +67,7 @@ export default function FinanzasConfig() {
         cuota_mensual_centavos: Math.round(cuota * 100),
         dia_vencimiento: dia,
         activo,
+        payment_link_url: paymentLinkUrl.trim() || null,
       })
       setConfig(updated)
       setNotice('Configuración guardada')
@@ -156,6 +159,19 @@ export default function FinanzasConfig() {
           />
           Configuración activa
         </label>
+        <div>
+          <label className="field-label">Link de pago para residentes</label>
+          <input
+            className="field"
+            type="url"
+            placeholder="https://..."
+            value={paymentLinkUrl}
+            onChange={(e) => setPaymentLinkUrl(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-slate-400">
+            Este enlace se abre desde el botón Pagar del dashboard del propietario.
+          </p>
+        </div>
         {config && (
           <p className="text-xs text-slate-400">ID config #{config.id}</p>
         )}

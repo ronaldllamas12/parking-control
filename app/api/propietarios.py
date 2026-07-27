@@ -490,6 +490,37 @@ async def notificar_propietario(
     return schemas.TelegramNotificationOut(detail="Notificación enviada")
 
 
+@router.post("/{uid}/cuenta", response_model=schemas.PropietarioCuentaOut)
+def crear_o_actualizar_cuenta_propietario(
+    uid: str,
+    payload: schemas.PropietarioCuentaCreate,
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    propietario = crud.get_propietario_by_uid(
+        db, uid.upper(), conjunto_id=current_user.conjunto_id
+    )
+    if not propietario:
+        raise HTTPException(status_code=404, detail="Propietario no encontrado")
+
+    existing_username = crud.get_user_by_username(db, payload.username)
+    if existing_username and existing_username.propietario_id != propietario.id:
+        raise HTTPException(status_code=409, detail="El usuario ya existe")
+
+    user = crud.create_or_update_propietario_user(
+        db,
+        propietario=propietario,
+        username=payload.username,
+        password=payload.password,
+    )
+    return schemas.PropietarioCuentaOut(
+        id=user.id,
+        username=user.username,
+        propietario_uid=propietario.uid,
+        propietario_nombre=propietario.nombre,
+    )
+
+
 @router.get("/{propietario_id}/paz-y-salvo")
 def generar_paz_y_salvo(
     propietario_id: str,
@@ -724,4 +755,3 @@ async def generar_telegram_link(
     link = f"https://t.me/{bot_username}?start={propietario.telegram_link_token}"
     logger.info("Telegram link generado uid=%s bot=%s", uid, bot_username)
     return schemas.TelegramLinkOut(link=link, bot_username=bot_username)
-

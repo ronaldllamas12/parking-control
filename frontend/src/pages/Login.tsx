@@ -31,6 +31,7 @@ export default function Login() {
   const routeForRole = (role: string) => {
     if (role === 'superadmin') return '/superadmin/conjuntos'
     if (role === 'admin') return '/admin/metricas'
+    if (role === 'propietario') return '/propietario/dashboard'
     return '/vigilante/verificar'
   }
 
@@ -77,7 +78,7 @@ export default function Login() {
       <div aria-hidden className="pointer-events-none absolute -top-40 -right-40 w-96 h-96 bg-brand-500/20 rounded-full blur-[100px]" />
       <div aria-hidden className="pointer-events-none absolute -bottom-40 -left-40 w-96 h-96 bg-brand-800/30 rounded-full blur-[100px]" />
 
-      <div className="relative w-full max-w-md lg:max-w-lg animate-slide-up">
+      <div className="relative w-full max-w-ms lg:max-w-lg animate-slide-up">
 
         {/* Brand hero */}
         <div className="text-center mb-2 lg:mb-2 mt-8">
@@ -110,7 +111,7 @@ export default function Login() {
         </div>
 
         {/* Card */}
-        <div className="glass px-8 py-8 lg:px-14 lg:py-14">
+        <div className="glass px-8 py-8 lg:px-12 lg:py-12">
 
           {/* Card header */}
           <div className="flex items-center gap-3 mb-8 justify-center">
@@ -118,7 +119,7 @@ export default function Login() {
               <img src="/logo.svg" alt="Logo" className="w-16 h-15 object-cover" />
             
           </div>
-          <div className= "flex items-center items-center justify-center"><span className="font-bold text-slate-800 text-base      ">Iniciar sesión</span>
+          <div className= "flex items-center items-center justify-center"><span className="font-bold text-slate-800 text-base      ">Iniciar Sesión</span>
           </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
 

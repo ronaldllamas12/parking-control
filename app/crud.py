@@ -26,6 +26,7 @@ def create_user(
     password: str,
     role: str,
     conjunto_id: UUID | None = None,
+    propietario_id: int | None = None,
 ) -> models.User:
     hashed = _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
     user = models.User(
@@ -33,6 +34,7 @@ def create_user(
         hashed_password=hashed,
         role=role,
         conjunto_id=conjunto_id,
+        propietario_id=propietario_id,
     )
     db.add(user)
     db.commit()
@@ -173,7 +175,7 @@ def get_users_by_conjunto(
         db.query(models.User)
         .filter(
             models.User.conjunto_id == conjunto_id,
-            models.User.role.in_(["admin", "vigilante"]),
+            models.User.role.in_(["admin", "vigilante", "propietario"]),
         )
         .order_by(models.User.role, models.User.username)
         .all()
@@ -380,8 +382,20 @@ def delete_conjunto(db: Session, conjunto: models.ConjuntoResidencial) -> None:
         models.User.conjunto_id == conjunto_id
     )
 
+    db.query(models.WebAuthnCredential).filter(
+        models.WebAuthnCredential.user_id.in_(tenant_user_ids)
+    ).delete(synchronize_session=False)
+    db.query(models.WebAuthnChallenge).filter(
+        models.WebAuthnChallenge.username.in_(tenant_usernames)
+    ).delete(synchronize_session=False)
+    db.query(models.User).filter(models.User.conjunto_id == conjunto_id).delete(
+        synchronize_session=False
+    )
     db.query(models.HistorialAcceso).filter(
         models.HistorialAcceso.conjunto_id == conjunto_id
+    ).delete(synchronize_session=False)
+    db.query(models.ComprobantePago).filter(
+        models.ComprobantePago.conjunto_id == conjunto_id
     ).delete(synchronize_session=False)
     db.query(models.TelegramMessage).filter(
         models.TelegramMessage.conjunto_id == conjunto_id
@@ -398,15 +412,6 @@ def delete_conjunto(db: Session, conjunto: models.ConjuntoResidencial) -> None:
     db.query(models.Propietario).filter(
         models.Propietario.conjunto_id == conjunto_id
     ).delete(synchronize_session=False)
-    db.query(models.WebAuthnCredential).filter(
-        models.WebAuthnCredential.user_id.in_(tenant_user_ids)
-    ).delete(synchronize_session=False)
-    db.query(models.WebAuthnChallenge).filter(
-        models.WebAuthnChallenge.username.in_(tenant_usernames)
-    ).delete(synchronize_session=False)
-    db.query(models.User).filter(models.User.conjunto_id == conjunto_id).delete(
-        synchronize_session=False
-    )
     db.delete(conjunto)
     db.commit()
 
@@ -430,6 +435,89 @@ def get_propietario_by_id(
             models.Propietario.conjunto_id == conjunto_id,
         )
         .first()
+    )
+
+
+def get_propietario_for_user(
+    db: Session, user: models.User
+) -> Optional[models.Propietario]:
+    if user.role != "propietario" or user.propietario_id is None or user.conjunto_id is None:
+        return None
+    return (
+        db.query(models.Propietario)
+        .filter(
+            models.Propietario.id == user.propietario_id,
+            models.Propietario.conjunto_id == user.conjunto_id,
+        )
+        .first()
+    )
+
+
+def create_or_update_propietario_user(
+    db: Session,
+    propietario: models.Propietario,
+    username: str,
+    password: str,
+) -> models.User:
+    hashed = _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
+    existing = (
+        db.query(models.User)
+        .filter(models.User.propietario_id == propietario.id)
+        .first()
+    )
+    if existing:
+        existing.username = username
+        existing.hashed_password = hashed
+        existing.role = "propietario"
+        existing.conjunto_id = propietario.conjunto_id
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    user = models.User(
+        username=username,
+        hashed_password=hashed,
+        role="propietario",
+        conjunto_id=propietario.conjunto_id,
+        propietario_id=propietario.id,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def create_comprobante_pago(
+    db: Session,
+    propietario: models.Propietario,
+    imagen_url: str,
+    mensaje: str | None = None,
+    referencia: str | None = None,
+    monto_centavos: int | None = None,
+) -> models.ComprobantePago:
+    comprobante = models.ComprobantePago(
+        conjunto_id=propietario.conjunto_id,
+        propietario_id=propietario.id,
+        imagen_url=imagen_url,
+        mensaje=mensaje,
+        referencia=referencia,
+        monto_centavos=monto_centavos,
+    )
+    db.add(comprobante)
+    db.commit()
+    db.refresh(comprobante)
+    return comprobante
+
+
+def list_comprobantes_pago(
+    db: Session, propietario: models.Propietario
+) -> list[models.ComprobantePago]:
+    return (
+        db.query(models.ComprobantePago)
+        .filter(models.ComprobantePago.propietario_id == propietario.id)
+        .order_by(models.ComprobantePago.created_at.desc())
+        .limit(50)
+        .all()
     )
 
 
@@ -933,4 +1021,3 @@ def get_telegram_conversation_detail(
         conversation=_telegram_conversation_out(db, conversation),
         messages=messages,
     )
-

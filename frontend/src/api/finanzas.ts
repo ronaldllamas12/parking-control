@@ -17,6 +17,7 @@ export async function actualizarConfigFinanciera(payload: {
   cuota_mensual_centavos: number
   dia_vencimiento: number
   activo: boolean
+  payment_link_url?: string | null
 }): Promise<ConfigFinancieraOut> {
   const { data } = await apiClient.put<ConfigFinancieraOut>('/api/v1/finanzas/config', payload)
   return data

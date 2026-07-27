@@ -1,7 +1,7 @@
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export interface AuthUser {
   username: string
-  role: 'superadmin' | 'admin' | 'vigilante'
+  role: 'superadmin' | 'admin' | 'vigilante' | 'propietario'
   conjunto_id?: string | null
 }
 
@@ -47,8 +47,9 @@ export interface CrearVigilantePayload {
 export interface UserOut {
   id: number
   username: string
-  role: 'superadmin' | 'admin' | 'vigilante'
+  role: 'superadmin' | 'admin' | 'vigilante' | 'propietario'
   conjunto_id?: string | null
+  propietario_id?: number | null
 }
 
 export interface SuperAdminRecentAccess {
@@ -221,6 +222,7 @@ export interface ConfigFinancieraOut {
   cuota_mensual_centavos: number
   dia_vencimiento: number
   activo: boolean
+  payment_link_url?: string | null
   created_at: string
 }
 
@@ -275,6 +277,31 @@ export interface EstadoCuentaOut {
   estado_cuenta: string
   saldo_centavos: number
   movimientos: MovimientoCarteraOut[]
+}
+
+export interface PropietarioDashboardOut {
+  propietario: PropietarioOut
+  estado_cuenta: EstadoCuentaOut
+  payment_link_url?: string | null
+  proximo_vencimiento?: string | null
+  ultimo_pago?: string | null
+}
+
+export interface ComprobantePagoOut {
+  id: number
+  imagen_url: string
+  mensaje?: string | null
+  referencia?: string | null
+  monto_centavos?: number | null
+  estado: 'recibido' | 'en_revision' | 'aprobado' | 'rechazado' | string
+  created_at: string
+}
+
+export interface PropietarioCuentaOut {
+  id: number
+  username: string
+  propietario_uid: string
+  propietario_nombre: string
 }
 
 export interface MovimientoCarteraCreate {
