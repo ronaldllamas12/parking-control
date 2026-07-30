@@ -1,4 +1,4 @@
-import { MessageSquare, RefreshCw, Send } from 'lucide-react'
+import { ExternalLink, ImageIcon, MessageSquare, RefreshCw, Send } from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   listarConversacionesTelegram,
@@ -15,6 +15,25 @@ function formatDate(value: string): string {
     dateStyle: 'short',
     timeStyle: 'short',
   })
+}
+
+function imageUrlsFromText(text: string): string[] {
+  const urls = text.match(/https?:\/\/[^\s]+/g) ?? []
+  return urls
+    .map((url) => url.replace(/[),.;]+$/, ''))
+    .filter((url) => /res\.cloudinary\.com|\/image\/upload\/|\.(png|jpe?g|webp|gif)(\?|$)/i.test(url))
+}
+
+function textWithoutImageUrls(text: string, imageUrls: string[]): string {
+  let cleaned = text
+  for (const url of imageUrls) {
+    cleaned = cleaned.replace(url, '').replace(`Imagen:`, '')
+  }
+  return cleaned
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n')
 }
 
 export default function MensajesTelegram() {
@@ -159,6 +178,8 @@ export default function MensajesTelegram() {
             <div className="max-h-[560px] overflow-y-auto">
               {conversations.map((conversation) => {
                 const active = conversation.id === selectedId
+                const imageUrls = imageUrlsFromText(conversation.last_message_text ?? '')
+                const preview = textWithoutImageUrls(conversation.last_message_text ?? '', imageUrls)
                 return (
                   <button
                     key={conversation.id}
@@ -184,7 +205,7 @@ export default function MensajesTelegram() {
                       )}
                     </div>
                     <p className="mt-2 line-clamp-2 text-sm text-slate-600">
-                      {conversation.last_message_text || 'Sin mensajes'}
+                      {preview || (imageUrls.length > 0 ? 'Soporte de pago adjunto' : 'Sin mensajes')}
                     </p>
                     <p className="mt-1 text-[11px] font-semibold text-slate-400">
                       {formatDate(conversation.last_message_at)}
@@ -216,6 +237,8 @@ export default function MensajesTelegram() {
               <div className="space-y-3">
                 {detail.messages.map((message) => {
                   const outgoing = message.sender_role !== 'propietario'
+                  const imageUrls = imageUrlsFromText(message.text)
+                  const visibleText = textWithoutImageUrls(message.text, imageUrls)
                   return (
                     <div key={message.id} className={`flex ${outgoing ? 'justify-end' : 'justify-start'}`}>
                       <div
@@ -225,7 +248,40 @@ export default function MensajesTelegram() {
                             : 'border border-surface-200 bg-white text-slate-800'
                         }`}
                       >
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.text}</p>
+                        {visibleText && <p className="whitespace-pre-wrap text-sm leading-relaxed">{visibleText}</p>}
+                        {imageUrls.length > 0 && (
+                          <div className={`mt-2 space-y-2 ${visibleText ? '' : 'mt-0'}`}>
+                            {imageUrls.map((url) => (
+                              <a
+                                key={url}
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={`block overflow-hidden rounded-lg border ${
+                                  outgoing ? 'border-white/20 bg-white/10' : 'border-surface-200 bg-surface-50'
+                                }`}
+                              >
+                                <img
+                                  src={url}
+                                  alt="Soporte de pago"
+                                  className="max-h-72 w-full object-contain bg-white"
+                                  loading="lazy"
+                                />
+                                <span
+                                  className={`flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold ${
+                                    outgoing ? 'text-white' : 'text-slate-700'
+                                  }`}
+                                >
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <ImageIcon className="h-3.5 w-3.5" />
+                                    Ver soporte
+                                  </span>
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </span>
+                              </a>
+                            ))}
+                          </div>
+                        )}
                         <p className={`mt-1 text-[11px] font-semibold ${outgoing ? 'text-teal-100' : 'text-slate-400'}`}>
                           {outgoing ? message.sender_username || roleLabel : 'Propietario'} · {formatDate(message.created_at)}
                         </p>

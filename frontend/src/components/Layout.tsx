@@ -12,8 +12,9 @@ import {
   UserPlus,
   Wallet,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { listarConversacionesTelegram } from '../api/telegram'
 import { useAuth } from '../context/AuthContext'
 
 const FINGERPRINT_LINK = { to: '/perfil/huella', label: 'Huella', icon: Fingerprint }
@@ -67,6 +68,7 @@ function linkActive(
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
+  const [unreadMessages, setUnreadMessages] = useState(0)
   const navigate   = useNavigate()
   const location   = useLocation()
   const isEditMode =
@@ -78,6 +80,33 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   const handleLogout = () => { logout(); navigate('/login', { replace: true }) }
   const roleMeta = user ? ROLE_META[user.role] : null
+  const canReceiveMessages = isAdmin || isVigilante
+
+  useEffect(() => {
+    if (!canReceiveMessages) {
+      setUnreadMessages(0)
+      return
+    }
+
+    let cancelled = false
+    const loadUnread = async () => {
+      try {
+        const conversations = await listarConversacionesTelegram()
+        if (!cancelled) {
+          setUnreadMessages(conversations.reduce((total, item) => total + item.unread_count, 0))
+        }
+      } catch {
+        if (!cancelled) setUnreadMessages(0)
+      }
+    }
+
+    void loadUnread()
+    const timer = window.setInterval(loadUnread, 30_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [canReceiveMessages, location.pathname])
 
   const sidebarLinkClass = (active: boolean) =>
     `flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
@@ -85,6 +114,13 @@ export default function Layout({ children }: { children: ReactNode }) {
         ? 'bg-teal-50 text-teal-800 border border-teal-200'
         : 'text-slate-600 hover:bg-surface-100 hover:text-slate-900 border border-transparent'
     }`
+
+  const messageBadge = (extraClass = '') =>
+    unreadMessages > 0 ? (
+      <span className={`min-w-5 rounded-full bg-rose-500 px-1.5 py-0.5 text-center text-[10px] font-extrabold leading-none text-white ${extraClass}`}>
+        {unreadMessages > 99 ? '99+' : unreadMessages}
+      </span>
+    ) : null
 
   return (
     <div className="min-h-screen bg-surface-50 flex flex-col">
@@ -159,12 +195,13 @@ export default function Layout({ children }: { children: ReactNode }) {
                         to="/vigilante/mensajes"
                         title="Mensajes"
                         className={({ isActive }) =>
-                          `w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                          `relative w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
                             isActive ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
                           }`
                         }
                       >
                         <MessageSquare className="w-4 h-4" />
+                        {messageBadge('absolute -right-1 -top-1')}
                       </NavLink>
                     )}
                     {(isAdmin || isVigilante) && (
@@ -212,7 +249,12 @@ export default function Layout({ children }: { children: ReactNode }) {
                       : 'text-white/55 hover:text-white hover:bg-white/10'
                   }`
                 }
-              >{link.label}</NavLink>
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  {link.label}
+                  {link.label === 'Mensajes' && messageBadge()}
+                </span>
+              </NavLink>
             ))}
           </div>
         )}
@@ -247,7 +289,10 @@ export default function Layout({ children }: { children: ReactNode }) {
                   return (
                     <NavLink key={link.to} to={link.to} className={sidebarLinkClass(active)}>
                       <Icon className="w-4 h-4 flex-shrink-0" />
-                      {link.label}
+                      <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                        <span>{link.label}</span>
+                        {link.label === 'Mensajes' && messageBadge()}
+                      </span>
                     </NavLink>
                   )
                 })}
@@ -297,7 +342,10 @@ export default function Layout({ children }: { children: ReactNode }) {
                     }
                   >
                     <Icon className="mb-1 h-4 w-4" />
-                    <span>{link.label}</span>
+                    <span className="relative inline-flex items-center gap-1">
+                      {link.label}
+                      {link.label === 'Mensajes' && messageBadge('absolute -right-4 -top-2')}
+                    </span>
                   </NavLink>
                 )
               })}
@@ -337,7 +385,10 @@ export default function Layout({ children }: { children: ReactNode }) {
                     }`
                   }
                 >
-                  <Icon className="mb-1 h-4 w-4" />
+                  <span className="relative">
+                    <Icon className="mb-1 h-4 w-4" />
+                    {label === 'Mensajes' && messageBadge('absolute -right-3 -top-2')}
+                  </span>
                   <span>{label}</span>
                 </NavLink>
               ))}
