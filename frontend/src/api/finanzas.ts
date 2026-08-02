@@ -5,6 +5,8 @@ import type {
     EstadoCuentaOut,
     GenerarCuotasOut,
     MovimientoCarteraCreate,
+    MovimientoCarteraListItem,
+    MovimientoCarteraUpdate,
 } from '../types'
 import apiClient from './axios'
 
@@ -72,6 +74,30 @@ export async function enviarRecordatorioFinanciero(uid: string): Promise<void> {
 export async function syncEstados(): Promise<{ actualizados: number }> {
   const { data } = await apiClient.post<{ actualizados: number }>('/api/v1/finanzas/sync-estados')
   return data
+}
+
+export async function listarMovimientos(params?: {
+  tipo?: 'cargo' | 'abono'
+  periodo?: string
+  search?: string
+}): Promise<MovimientoCarteraListItem[]> {
+  const { data } = await apiClient.get<MovimientoCarteraListItem[]>('/api/v1/finanzas/movimientos', { params })
+  return data
+}
+
+export async function actualizarMovimiento(
+  id: number,
+  payload: MovimientoCarteraUpdate,
+): Promise<MovimientoCarteraListItem> {
+  const { data } = await apiClient.patch<MovimientoCarteraListItem>(
+    `/api/v1/finanzas/movimientos/${id}`,
+    payload,
+  )
+  return data
+}
+
+export async function eliminarMovimiento(id: number): Promise<void> {
+  await apiClient.delete(`/api/v1/finanzas/movimientos/${id}`)
 }
 
 async function downloadBlob(url: string, fallbackName: string): Promise<void> {

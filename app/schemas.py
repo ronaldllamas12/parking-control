@@ -648,6 +648,40 @@ class MovimientoCarteraCreate(BaseModel):
     notas: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
 
 
+class MovimientoCarteraUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    monto_centavos: int | None = Field(default=None, gt=0)
+    fecha: date | None = None
+    concepto_id: int | None = None
+    periodo: Annotated[
+        str, StringConstraints(strip_whitespace=True, pattern=r"^\d{4}-\d{2}$")
+    ] | None = None
+    referencia: Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)] | None = None
+    notas: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+
+class MovimientoCarteraListItem(BaseModel):
+    id: int
+    tipo: str
+    monto_centavos: int
+    fecha: date
+    periodo: str | None = None
+    referencia: str | None = None
+    notas: str | None = None
+    concepto_id: int | None = None
+    concepto_nombre: str | None = None
+    created_by: str | None = None
+    created_at: datetime
+    propietario_id: int
+    propietario_uid: str
+    propietario_nombre: str
+    torre: str
+    apartamento: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class MovimientoCajaOut(BaseModel):
     id: int
     tipo: str

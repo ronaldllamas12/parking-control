@@ -600,6 +600,138 @@ def list_caja(
     ]
 
 
+def _mov_to_list_item(mov: models.MovimientoCartera) -> schemas.MovimientoCarteraListItem:
+    return schemas.MovimientoCarteraListItem(
+        id=mov.id,
+        tipo=mov.tipo,
+        monto_centavos=mov.monto_centavos,
+        fecha=mov.fecha,
+        periodo=mov.periodo,
+        referencia=mov.referencia,
+        notas=mov.notas,
+        concepto_id=mov.concepto_id,
+        concepto_nombre=mov.concepto.nombre if mov.concepto else None,
+        created_by=mov.created_by,
+        created_at=mov.created_at,
+        propietario_id=mov.propietario.id,
+        propietario_uid=mov.propietario.uid,
+        propietario_nombre=mov.propietario.nombre,
+        torre=mov.propietario.torre,
+        apartamento=mov.propietario.apartamento,
+    )
+
+
+def list_movimientos_conjunto(
+    db: Session,
+    conjunto_id: UUID,
+    tipo: str | None = None,
+    periodo: str | None = None,
+    search: str | None = None,
+) -> list[schemas.MovimientoCarteraListItem]:
+    q = (
+        db.query(models.MovimientoCartera)
+        .options(
+            joinedload(models.MovimientoCartera.concepto),
+            joinedload(models.MovimientoCartera.propietario),
+        )
+        .filter(models.MovimientoCartera.conjunto_id == conjunto_id)
+    )
+    if tipo:
+        q = q.filter(models.MovimientoCartera.tipo == tipo)
+    if periodo:
+        q = q.filter(models.MovimientoCartera.periodo == periodo)
+    if search:
+        term = f"%{search.strip().lower()}%"
+        q = q.join(
+            models.Propietario,
+            models.Propietario.id == models.MovimientoCartera.propietario_id,
+        ).filter(
+            models.Propietario.nombre.ilike(term)
+            | (models.Propietario.torre + models.Propietario.apartamento).ilike(term)
+            | models.Propietario.uid.ilike(term)
+        )
+    rows = q.order_by(
+        models.MovimientoCartera.fecha.desc(),
+        models.MovimientoCartera.id.desc(),
+    ).all()
+    return [_mov_to_list_item(m) for m in rows]
+
+
+def update_movimiento_cartera(
+    db: Session,
+    conjunto_id: UUID,
+    movimiento_id: int,
+    payload: schemas.MovimientoCarteraUpdate,
+) -> schemas.MovimientoCarteraListItem | None:
+    mov = (
+        db.query(models.MovimientoCartera)
+        .options(
+            joinedload(models.MovimientoCartera.concepto),
+            joinedload(models.MovimientoCartera.propietario),
+        )
+        .filter(
+            models.MovimientoCartera.id == movimiento_id,
+            models.MovimientoCartera.conjunto_id == conjunto_id,
+        )
+        .first()
+    )
+    if not mov:
+        return None
+    if payload.concepto_id is not None:
+        concepto = (
+            db.query(models.ConceptoMovimiento)
+            .filter(
+                models.ConceptoMovimiento.id == payload.concepto_id,
+                models.ConceptoMovimiento.conjunto_id == conjunto_id,
+            )
+            .first()
+        )
+        if not concepto:
+            raise ValueError("Concepto no encontrado")
+        mov.concepto_id = payload.concepto_id
+        db.refresh(mov, ["concepto"])
+    if payload.monto_centavos is not None:
+        mov.monto_centavos = payload.monto_centavos
+    if payload.fecha is not None:
+        mov.fecha = payload.fecha
+    if payload.periodo is not None:
+        mov.periodo = payload.periodo
+    if payload.referencia is not None:
+        mov.referencia = payload.referencia
+    if payload.notas is not None:
+        mov.notas = payload.notas
+    db.flush()
+    propietario = mov.propietario
+    sync_estado_cuenta(db, propietario)
+    db.commit()
+    db.refresh(mov)
+    return _mov_to_list_item(mov)
+
+
+def delete_movimiento_cartera(
+    db: Session,
+    conjunto_id: UUID,
+    movimiento_id: int,
+) -> bool:
+    mov = (
+        db.query(models.MovimientoCartera)
+        .options(joinedload(models.MovimientoCartera.propietario))
+        .filter(
+            models.MovimientoCartera.id == movimiento_id,
+            models.MovimientoCartera.conjunto_id == conjunto_id,
+        )
+        .first()
+    )
+    if not mov:
+        return False
+    propietario = mov.propietario
+    db.delete(mov)
+    db.flush()
+    sync_estado_cuenta(db, propietario)
+    db.commit()
+    return True
+
+
 def crear_movimiento_caja(
     db: Session,
     conjunto_id: UUID,

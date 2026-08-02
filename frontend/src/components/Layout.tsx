@@ -1,17 +1,18 @@
 import {
-  BarChart3,
-  Building2,
-  CalendarDays,
-  Fingerprint,
-  List,
-  LogOut,
-  MessageSquare,
-  PencilLine,
-  Settings2,
-  Shield,
-  UserCircle2,
-  UserPlus,
-  Wallet,
+    BarChart3,
+    Building2,
+    CalendarDays,
+    Fingerprint,
+    List,
+    ListOrdered,
+    LogOut,
+    MessageSquare,
+    PencilLine,
+    Settings2,
+    Shield,
+    UserCircle2,
+    UserPlus,
+    Wallet,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
@@ -37,6 +38,7 @@ const ADMIN_ACCESO_LINKS = [
 ]
 
 const ADMIN_FINANZAS_LINKS = [
+  { to: '/admin/finanzas/movimientos', label: 'Cargos', icon: ListOrdered },
   { to: '/admin/finanzas/cartera', label: 'Cartera', icon: Wallet },
   { to: '/admin/finanzas/config',  label: 'Cuotas',  icon: Settings2 },
 ]

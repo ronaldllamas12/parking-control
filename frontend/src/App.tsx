@@ -9,6 +9,7 @@ import AdminMetricas from './pages/admin/AdminMetricas'
 import FinanzasCartera from './pages/admin/FinanzasCartera'
 import FinanzasConfig from './pages/admin/FinanzasConfig'
 import FinanzasEstadoCuenta from './pages/admin/FinanzasEstadoCuenta'
+import FinanzasMovimientos from './pages/admin/FinanzasMovimientos'
 import ListarPropietarios from './pages/admin/ListarPropietarios'
 import RegistrarPropietario from './pages/admin/RegistrarPropietario'
 import SalonesSociales from './pages/admin/SalonesSociales'
@@ -80,6 +81,14 @@ export default function App() {
               element={
                 <Layout>
                   <ListarPropietarios />
+                </Layout>
+              }
+            />
+            <Route
+              path="/admin/finanzas/movimientos"
+              element={
+                <Layout>
+                  <FinanzasMovimientos />
                 </Layout>
               }
             />

@@ -130,6 +130,52 @@ def get_cartera(
     )
 
 
+# ── Movimientos (CRUD global) ─────────────────────────────────────────────────
+
+@router.get("/movimientos", response_model=list[schemas.MovimientoCarteraListItem])
+def get_movimientos(
+    tipo: str | None = Query(None, pattern="^(cargo|abono)$"),
+    periodo: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
+    search: str | None = Query(None, max_length=100),
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    return finanzas_service.list_movimientos_conjunto(
+        db, current_user.conjunto_id, tipo=tipo, periodo=periodo, search=search
+    )
+
+
+@router.patch("/movimientos/{movimiento_id}", response_model=schemas.MovimientoCarteraListItem)
+def patch_movimiento(
+    movimiento_id: int,
+    payload: schemas.MovimientoCarteraUpdate,
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    try:
+        item = finanzas_service.update_movimiento_cartera(
+            db, current_user.conjunto_id, movimiento_id, payload
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not item:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
+    return item
+
+
+@router.delete("/movimientos/{movimiento_id}", status_code=204)
+def delete_movimiento(
+    movimiento_id: int,
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    deleted = finanzas_service.delete_movimiento_cartera(
+        db, current_user.conjunto_id, movimiento_id
+    )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
+
+
 # ── Estado de cuenta ──────────────────────────────────────────────────────────
 
 @router.get("/propietarios/{uid}/estado-cuenta", response_model=schemas.EstadoCuentaOut)

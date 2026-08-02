@@ -370,6 +370,34 @@ export interface MovimientoCarteraCreate {
   notas?: string | null
 }
 
+export interface MovimientoCarteraUpdate {
+  monto_centavos?: number | null
+  fecha?: string | null
+  concepto_id?: number | null
+  periodo?: string | null
+  referencia?: string | null
+  notas?: string | null
+}
+
+export interface MovimientoCarteraListItem {
+  id: number
+  tipo: 'cargo' | 'abono' | string
+  monto_centavos: number
+  fecha: string
+  periodo?: string | null
+  referencia?: string | null
+  notas?: string | null
+  concepto_id?: number | null
+  concepto_nombre?: string | null
+  created_by?: string | null
+  created_at: string
+  propietario_id: number
+  propietario_uid: string
+  propietario_nombre: string
+  torre: string
+  apartamento: string
+}
+
 // ── API errors ────────────────────────────────────────────────────────────────
 export interface ApiErrorBody {
   detail: string
