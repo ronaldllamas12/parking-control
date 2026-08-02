@@ -72,6 +72,11 @@ def _verificar_identificador(
     motivo = None
 
     if not zona.acceso_universal:
+        # Recomputar estado para que el acceso refleje la lógica de gracia
+        # del mes en curso y no dependa de un campo cacheado desactualizado
+        from app.services import finanzas_service as _fs
+        _fs.sync_estado_cuenta(db, propietario)
+
         if not propietario.acceso_habilitado:
             estado_intento = "denegado"
             motivo = (

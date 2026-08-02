@@ -17,7 +17,8 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import (Paragraph, SimpleDocTemplate, Spacer, Table,
+                                TableStyle)
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/finanzas", tags=["finanzas"])
@@ -93,6 +94,19 @@ def post_generar_cuotas(
     return finanzas_service.generar_cuotas(
         db, current_user.conjunto_id, payload.periodo, current_user.username
     )
+
+
+# ── Sync estados ─────────────────────────────────────────────────────────────
+
+@router.post("/sync-estados")
+def sync_estados(
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    """Re-sincroniza estado_cuenta y amenidades_suspendidas de todos los
+    propietarios según la lógica de gracia del mes en curso."""
+    actualizados = finanzas_service.sync_estados_conjunto(db, current_user.conjunto_id)
+    return {"actualizados": actualizados}
 
 
 # ── Cartera ───────────────────────────────────────────────────────────────────

@@ -215,12 +215,41 @@ def sync_estado_cuenta(db: Session, propietario: models.Propietario) -> str:
     saldo = saldo_propietario(db, propietario.id)
     cargo_actual = _cargo_periodo_actual(db, propietario.id)
     nuevo = _calcular_estado_mora(saldo, cargo_actual)
-    if propietario.estado_cuenta != nuevo:
+    changed = propietario.estado_cuenta != nuevo
+    if changed:
         propietario.estado_cuenta = nuevo
         if nuevo == "en_mora":
             propietario.amenidades_suspendidas = True
+        else:
+            # Al recuperar el día, liberar la suspensión automática por deuda
+            propietario.amenidades_suspendidas = False
         db.flush()
     return nuevo
+
+
+def sync_estados_conjunto(db: Session, conjunto_id: UUID) -> int:
+    """Re-sincroniza estado_cuenta y amenidades_suspendidas de todos los
+    propietarios del conjunto. Retorna la cantidad de registros actualizados."""
+    propietarios = (
+        db.query(models.Propietario)
+        .filter(models.Propietario.conjunto_id == conjunto_id)
+        .all()
+    )
+    actualizados = 0
+    for p in propietarios:
+        saldo = saldo_propietario(db, p.id)
+        cargo_actual = _cargo_periodo_actual(db, p.id)
+        nuevo = _calcular_estado_mora(saldo, cargo_actual)
+        if p.estado_cuenta != nuevo:
+            p.estado_cuenta = nuevo
+            p.amenidades_suspendidas = nuevo == "en_mora"
+            actualizados += 1
+        elif nuevo == "al_dia" and p.amenidades_suspendidas:
+            # amenidades quedó True por deuda antigua; limpiar
+            p.amenidades_suspendidas = False
+            actualizados += 1
+    db.commit()
+    return actualizados
 
 
 def generar_cuotas(
