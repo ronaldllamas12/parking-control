@@ -1083,7 +1083,7 @@ export default function ListarPropietarios() {
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={load} disabled={loading} className="btn-icon w-10 h-10" aria-label="Recargar lista">
-              <RefreshCw className={`w-4 h-4 text-white ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 text-black ${loading ? 'animate-spin' : ''}`} />
             </button>
             <button
               onClick={() => setShowBulkImport(true)}

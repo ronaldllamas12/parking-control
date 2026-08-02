@@ -65,7 +65,7 @@ const emptyForm = {
   nombre: '',
   descripcion: '',
   capacidad: 50,
-  estado: 'activo' as const,
+  estado: 'activo' as 'activo' | 'inactivo',
   color_calendario: colors[0],
   precio_sin_aseo: '130000',
   precio_con_aseo: '160000',
