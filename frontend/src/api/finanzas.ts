@@ -1,10 +1,10 @@
 import type {
-  CarteraItemOut,
-  ConceptoMovimientoOut,
-  ConfigFinancieraOut,
-  EstadoCuentaOut,
-  GenerarCuotasOut,
-  MovimientoCarteraCreate,
+    CarteraItemOut,
+    ConceptoMovimientoOut,
+    ConfigFinancieraOut,
+    EstadoCuentaOut,
+    GenerarCuotasOut,
+    MovimientoCarteraCreate,
 } from '../types'
 import apiClient from './axios'
 
@@ -67,6 +67,11 @@ export async function crearMovimientoCartera(
 
 export async function enviarRecordatorioFinanciero(uid: string): Promise<void> {
   await apiClient.post(`/api/v1/finanzas/propietarios/${uid}/recordatorio`)
+}
+
+export async function syncEstados(): Promise<{ actualizados: number }> {
+  const { data } = await apiClient.post<{ actualizados: number }>('/api/v1/finanzas/sync-estados')
+  return data
 }
 
 async function downloadBlob(url: string, fallbackName: string): Promise<void> {

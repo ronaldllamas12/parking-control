@@ -1,21 +1,22 @@
 import type { AxiosError } from 'axios'
 import {
-  Bell,
-  FileSpreadsheet,
-  Filter,
-  MessageSquare,
-  RefreshCw,
-  Search,
-  Settings2,
-  Wallet,
+    Bell,
+    FileSpreadsheet,
+    Filter,
+    MessageSquare,
+    RefreshCw,
+    Search,
+    Settings2,
+    Wallet,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { descargarPazYSalvo } from '../../api/propietarios'
 import {
-  enviarRecordatorioFinanciero,
-  listarCartera,
+    enviarRecordatorioFinanciero,
+    listarCartera,
+    syncEstados,
 } from '../../api/finanzas'
+import { descargarPazYSalvo } from '../../api/propietarios'
 import type { ApiErrorBody, CarteraItemOut } from '../../types'
 
 function formatCop(centavos: number): string {
@@ -49,6 +50,21 @@ export default function FinanzasCartera() {
   const [search, setSearch] = useState('')
 
   const [busyUid, setBusyUid] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+
+  const handleSync = async () => {
+    setSyncing(true)
+    setError(null)
+    try {
+      const { actualizados } = await syncEstados()
+      setNotice(`Sincronización completada: ${actualizados} registro${actualizados !== 1 ? 's' : ''} actualizado${actualizados !== 1 ? 's' : ''}.`)
+      void load()
+    } catch {
+      setError('No se pudo sincronizar los estados de cuenta.')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const load = async () => {
     setLoading(true)
@@ -140,10 +156,22 @@ export default function FinanzasCartera() {
             Saldos, vencimientos y acciones rápidas de administración financiera.
           </p>
         </div>
-        <Link to="/admin/finanzas/config" className="btn-secondary">
-          <Settings2 className="w-4 h-4" />
-          Configuración
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => { void handleSync() }}
+            className="btn-secondary"
+            disabled={syncing}
+            title="Recalcula estado_cuenta y amenidades de todos los propietarios según la lógica de gracia del mes en curso"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Sincronizando…' : 'Sincronizar estados'}
+          </button>
+          <Link to="/admin/finanzas/config" className="btn-secondary">
+            <Settings2 className="w-4 h-4" />
+            Configuración
+          </Link>
+        </div>
       </div>
 
       {error && (
