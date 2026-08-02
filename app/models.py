@@ -297,6 +297,120 @@ class ComprobantePago(Base):
     propietario: Mapped[Propietario] = relationship()
 
 
+class SalonSocial(Base):
+    __tablename__ = "salones_sociales"
+    __table_args__ = (
+        UniqueConstraint("conjunto_id", "nombre", name="uq_salones_sociales_conjunto_nombre"),
+        CheckConstraint(
+            "estado IN ('activo', 'inactivo')",
+            name="ck_salones_sociales_estado",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
+    nombre: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    capacidad: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    imagen_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    estado: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="activo", server_default="activo", index=True
+    )
+    color_calendario: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="#0f766e", server_default="#0f766e"
+    )
+    precio_sin_aseo_centavos: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=13000000, server_default="13000000"
+    )
+    precio_con_aseo_centavos: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=16000000, server_default="16000000"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    reservas: Mapped[list["SalonSocialReserva"]] = relationship(
+        back_populates="salon", cascade="all, delete-orphan"
+    )
+
+
+class SalonSocialReserva(Base):
+    __tablename__ = "salones_sociales_reservas"
+    __table_args__ = (
+        UniqueConstraint("salon_id", "active_slot_key", name="uq_salones_reservas_slot_activo"),
+        CheckConstraint(
+            "tipo IN ('reserva', 'bloqueo')",
+            name="ck_salones_reservas_tipo",
+        ),
+        CheckConstraint(
+            "estado IN ('pendiente_pago', 'pendiente_aprobacion', 'confirmado', 'cancelado', 'no_disponible', 'mantenimiento', 'evento_privado')",
+            name="ck_salones_reservas_estado",
+        ),
+        CheckConstraint(
+            "pago_estado IN ('pendiente', 'reportado', 'validado', 'rechazado')",
+            name="ck_salones_reservas_pago_estado",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conjunto_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conjuntos_residenciales.id"),
+        nullable=False,
+        index=True,
+    )
+    salon_id: Mapped[int] = mapped_column(
+        ForeignKey("salones_sociales.id"), nullable=False, index=True
+    )
+    propietario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("propietarios.id"), nullable=True, index=True
+    )
+    fecha: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    active_slot_key: Mapped[str | None] = mapped_column(String(10), nullable=True, index=True)
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    estado: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    incluye_aseo: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    precio_centavos: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
+    pago_estado: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="pendiente", server_default="pendiente", index=True
+    )
+    comprobante_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    referencia_pago: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    notas: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    cancel_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    salon: Mapped[SalonSocial] = relationship(back_populates="reservas")
+    propietario: Mapped[Propietario | None] = relationship()
+
+
 class HistorialAcceso(Base):
     __tablename__ = "historial_accesos"
     __table_args__ = (

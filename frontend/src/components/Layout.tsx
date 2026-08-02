@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Building2,
+  CalendarDays,
   Fingerprint,
   List,
   LogOut,
@@ -32,6 +33,7 @@ const ADMIN_ACCESO_LINKS = [
   { to: '/admin/registrar',              label: 'Registrar', icon: UserPlus },
   { to: '/admin/propietarios?mode=edit', label: 'Editar',    icon: PencilLine },
   { to: '/admin/mensajes',               label: 'Mensajes',  icon: MessageSquare },
+  { to: '/admin/salones-sociales',       label: 'Salones',   icon: CalendarDays },
 ]
 
 const ADMIN_FINANZAS_LINKS = [
@@ -41,6 +43,7 @@ const ADMIN_FINANZAS_LINKS = [
 
 const ADMIN_MOBILE_LINKS = [
   ...ADMIN_ACCESO_LINKS.slice(0, 3),
+  ADMIN_ACCESO_LINKS[5],
   ADMIN_ACCESO_LINKS[4],
 ]
 
@@ -178,17 +181,30 @@ export default function Layout({ children }: { children: ReactNode }) {
                 {(isAdmin || isVigilante || isPropietario) && (
                   <>
                     {isPropietario && (
-                      <NavLink
-                        to="/propietario/dashboard"
-                        title="Mi dashboard"
-                        className={({ isActive }) =>
-                          `w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                            isActive ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
-                          }`
-                        }
-                      >
-                        <Wallet className="w-4 h-4" />
-                      </NavLink>
+                      <>
+                        <NavLink
+                          to="/propietario/dashboard"
+                          title="Mi dashboard"
+                          className={({ isActive }) =>
+                            `w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                              isActive ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
+                            }`
+                          }
+                        >
+                          <Wallet className="w-4 h-4" />
+                        </NavLink>
+                        <NavLink
+                          to="/propietario/salones-sociales"
+                          title="Reservar salón"
+                          className={({ isActive }) =>
+                            `w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                              isActive ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
+                            }`
+                          }
+                        >
+                          <CalendarDays className="w-4 h-4" />
+                        </NavLink>
+                      </>
                     )}
                     {isVigilante && (
                       <NavLink
@@ -402,17 +418,25 @@ export default function Layout({ children }: { children: ReactNode }) {
                         bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent">
           <div className="mx-auto max-w-sm rounded-[28px] bg-gradient-premium border border-white/15
                           p-1.5 shadow-float backdrop-blur-xl">
-            <NavLink
-              to="/propietario/dashboard"
-              className={({ isActive }) =>
-                `flex items-center justify-center gap-2 rounded-[20px] py-3 text-xs font-bold tracking-wide transition-all duration-200 ${
-                  isActive ? 'bg-white text-brand-700 shadow-brand' : 'text-white/65 hover:text-white hover:bg-white/10'
-                }`
-              }
-            >
-              <Wallet className="h-4 w-4" />
-              <span>Mi cuenta</span>
-            </NavLink>
+            <div className="grid grid-cols-2 gap-1">
+              {[
+                { to: '/propietario/dashboard', label: 'Mi cuenta', icon: Wallet },
+                { to: '/propietario/salones-sociales', label: 'Salón', icon: CalendarDays },
+              ].map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    `flex items-center justify-center gap-2 rounded-[20px] py-3 text-xs font-bold tracking-wide transition-all duration-200 ${
+                      isActive ? 'bg-white text-brand-700 shadow-brand' : 'text-white/65 hover:text-white hover:bg-white/10'
+                    }`
+                  }
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+            </div>
           </div>
         </div>
       )}

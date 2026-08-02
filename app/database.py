@@ -25,6 +25,7 @@ def _tenant_scoped_classes():
                             ConceptoMovimiento, ConfigFinanciera,
                             HistorialAcceso, HuellaDigital, MovimientoCaja,
                             MovimientoCartera, Propietario,
+                            SalonSocial, SalonSocialReserva,
                             TelegramConversation, TelegramMessage, ZonaAcceso)
 
     return (
@@ -38,6 +39,8 @@ def _tenant_scoped_classes():
         MovimientoCaja,
         AlertaFinanciera,
         ComprobantePago,
+        SalonSocial,
+        SalonSocialReserva,
         TelegramConversation,
         TelegramMessage,
     )

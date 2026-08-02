@@ -304,6 +304,62 @@ export interface PropietarioCuentaOut {
   propietario_nombre: string
 }
 
+// ── Salones Sociales ─────────────────────────────────────────────────────────
+export interface SalonSocialOut {
+  id: number
+  nombre: string
+  descripcion?: string | null
+  capacidad: number
+  imagen_url?: string | null
+  estado: 'activo' | 'inactivo'
+  color_calendario: string
+  precio_sin_aseo_centavos: number
+  precio_con_aseo_centavos: number
+  created_at: string
+  updated_at: string
+}
+
+export interface SalonSocialReservaOut {
+  id: number
+  salon_id: number
+  salon_nombre: string
+  salon_color: string
+  propietario_id?: number | null
+  propietario_nombre?: string | null
+  propietario_uid?: string | null
+  torre?: string | null
+  apartamento?: string | null
+  fecha: string
+  inicio: string
+  fin: string
+  tipo: 'reserva' | 'bloqueo'
+  estado: string
+  estado_visual: string
+  incluye_aseo: boolean
+  precio_centavos: number
+  pago_estado: string
+  comprobante_url?: string | null
+  referencia_pago?: string | null
+  notas?: string | null
+  cancel_reason?: string | null
+  created_by?: string | null
+  approved_by?: string | null
+  approved_at?: string | null
+  created_at: string
+}
+
+export interface SalonSocialCalendarDayOut {
+  salon_id: number
+  salon_nombre: string
+  salon_color: string
+  fecha: string
+  inicio: string
+  fin: string
+  disponible: boolean
+  estado_visual: string
+  reserva?: SalonSocialReservaOut | null
+}
+
 export interface MovimientoCarteraCreate {
   tipo: 'cargo' | 'abono'
   monto_centavos: number

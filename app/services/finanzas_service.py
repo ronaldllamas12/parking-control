@@ -182,9 +182,39 @@ def saldo_propietario(db: Session, propietario_id: int) -> int:
     return int(row or 0)
 
 
+def _cargo_periodo_actual(db: Session, propietario_id: int) -> int:
+    """Suma de cargos del periodo en curso para un propietario."""
+    periodo_actual = _periodo_from_date(_today())
+    row = (
+        db.query(func.coalesce(func.sum(models.MovimientoCartera.monto_centavos), 0))
+        .filter(
+            models.MovimientoCartera.propietario_id == propietario_id,
+            models.MovimientoCartera.tipo == "cargo",
+            models.MovimientoCartera.periodo == periodo_actual,
+        )
+        .scalar()
+    )
+    return int(row or 0)
+
+
+def _calcular_estado_mora(saldo: int, cargo_mes_actual: int) -> str:
+    """Determina el estado de cuenta aplicando la gracia del mes en curso.
+
+    Un propietario NO está en mora si su deuda no supera los cargos del
+    periodo actual — tiene todo el mes vigente para pagar.
+    Sólo entra en mora cuando debe más de un mes (deuda previa acumulada).
+    """
+    if saldo <= 0:
+        return "al_dia"
+    if saldo <= cargo_mes_actual:
+        return "al_dia"  # debe sólo el mes en curso, aún está a tiempo
+    return "en_mora"
+
+
 def sync_estado_cuenta(db: Session, propietario: models.Propietario) -> str:
     saldo = saldo_propietario(db, propietario.id)
-    nuevo = "en_mora" if saldo > 0 else "al_dia"
+    cargo_actual = _cargo_periodo_actual(db, propietario.id)
+    nuevo = _calcular_estado_mora(saldo, cargo_actual)
     if propietario.estado_cuenta != nuevo:
         propietario.estado_cuenta = nuevo
         if nuevo == "en_mora":
@@ -287,6 +317,8 @@ def list_cartera(
     config = get_or_create_config(db, conjunto_id)
     venc = _proximo_vencimiento(config.dia_vencimiento)
 
+    periodo_actual = _periodo_from_date(_today())
+
     saldo_expr = func.coalesce(
         func.sum(
             case(
@@ -304,11 +336,26 @@ def list_cartera(
         )
     ).label("ultimo_pago")
 
+    cargo_actual_expr = func.coalesce(
+        func.sum(
+            case(
+                (
+                    (models.MovimientoCartera.tipo == "cargo")
+                    & (models.MovimientoCartera.periodo == periodo_actual),
+                    models.MovimientoCartera.monto_centavos,
+                ),
+                else_=0,
+            )
+        ),
+        0,
+    ).label("cargo_periodo_actual")
+
     q = (
         db.query(
             models.Propietario,
             saldo_expr,
             ultimo_pago_expr,
+            cargo_actual_expr,
         )
         .outerjoin(
             models.MovimientoCartera,
@@ -322,9 +369,10 @@ def list_cartera(
 
     rows = q.all()
     items: list[schemas.CarteraItemOut] = []
-    for p, saldo, ultimo_pago in rows:
+    for p, saldo, ultimo_pago, cargo_actual in rows:
         saldo_i = int(saldo or 0)
-        estado_calc = "en_mora" if saldo_i > 0 else "al_dia"
+        cargo_actual_i = int(cargo_actual or 0)
+        estado_calc = _calcular_estado_mora(saldo_i, cargo_actual_i)
         if estado and estado != "todos" and estado_calc != estado:
             continue
         if saldo_min is not None and saldo_i < saldo_min:
@@ -394,13 +442,17 @@ def estado_cuenta(db: Session, conjunto_id: UUID, uid: str) -> schemas.EstadoCue
             )
         )
 
+    cargo_mes_actual = sum(
+        m.monto_centavos for m in movimientos
+        if m.tipo == "cargo" and m.periodo == _periodo_from_date(_today())
+    )
     return schemas.EstadoCuentaOut(
         propietario_id=propietario.id,
         uid=propietario.uid,
         nombre=propietario.nombre,
         torre=propietario.torre,
         apartamento=propietario.apartamento,
-        estado_cuenta="en_mora" if running > 0 else "al_dia",
+        estado_cuenta=_calcular_estado_mora(running, cargo_mes_actual),
         saldo_centavos=running,
         movimientos=out_movs,
     )

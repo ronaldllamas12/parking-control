@@ -11,7 +11,9 @@ import FinanzasConfig from './pages/admin/FinanzasConfig'
 import FinanzasEstadoCuenta from './pages/admin/FinanzasEstadoCuenta'
 import ListarPropietarios from './pages/admin/ListarPropietarios'
 import RegistrarPropietario from './pages/admin/RegistrarPropietario'
+import SalonesSociales from './pages/admin/SalonesSociales'
 import PropietarioDashboard from './pages/propietario/PropietarioDashboard'
+import ReservarSalonSocial from './pages/propietario/ReservarSalonSocial'
 import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard'
 import VerificarAcceso from './pages/vigilante/VerificarAcceso'
 
@@ -42,6 +44,14 @@ export default function App() {
               element={
                 <Layout>
                   <PropietarioDashboard />
+                </Layout>
+              }
+            />
+            <Route
+              path="/propietario/salones-sociales"
+              element={
+                <Layout>
+                  <ReservarSalonSocial />
                 </Layout>
               }
             />
@@ -102,6 +112,14 @@ export default function App() {
               element={
                 <Layout>
                   <MensajesTelegram />
+                </Layout>
+              }
+            />
+            <Route
+              path="/admin/salones-sociales"
+              element={
+                <Layout>
+                  <SalonesSociales />
                 </Layout>
               }
             />

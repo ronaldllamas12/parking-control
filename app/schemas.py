@@ -531,6 +531,109 @@ class ComprobantePagoOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ── Salones sociales ─────────────────────────────────────────────────────────
+
+class SalonSocialOut(BaseModel):
+    id: int
+    nombre: str
+    descripcion: str | None = None
+    capacidad: int
+    imagen_url: str | None = None
+    estado: str
+    color_calendario: str
+    precio_sin_aseo_centavos: int
+    precio_con_aseo_centavos: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SalonSocialUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    nombre: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=120)] | None = None
+    descripcion: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None = None
+    capacidad: int | None = Field(default=None, ge=1, le=10000)
+    estado: str | None = Field(default=None, pattern="^(activo|inactivo)$")
+    color_calendario: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    precio_sin_aseo_centavos: int | None = Field(default=None, ge=0)
+    precio_con_aseo_centavos: int | None = Field(default=None, ge=0)
+
+
+class SalonSocialReservaOut(BaseModel):
+    id: int
+    salon_id: int
+    salon_nombre: str
+    salon_color: str
+    propietario_id: int | None = None
+    propietario_nombre: str | None = None
+    propietario_uid: str | None = None
+    torre: str | None = None
+    apartamento: str | None = None
+    fecha: date
+    inicio: datetime
+    fin: datetime
+    tipo: str
+    estado: str
+    estado_visual: str
+    incluye_aseo: bool
+    precio_centavos: int
+    pago_estado: str
+    comprobante_url: str | None = None
+    referencia_pago: str | None = None
+    notas: str | None = None
+    cancel_reason: str | None = None
+    created_by: str | None = None
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    created_at: datetime
+
+
+class SalonSocialCalendarDayOut(BaseModel):
+    salon_id: int
+    salon_nombre: str
+    salon_color: str
+    fecha: date
+    inicio: datetime
+    fin: datetime
+    disponible: bool
+    estado_visual: str
+    reserva: SalonSocialReservaOut | None = None
+
+
+class SalonSocialBloqueoIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    salon_id: int
+    fecha: date
+    estado: str = Field(pattern="^(disponible|no_disponible|mantenimiento|evento_privado)$")
+    notas: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+
+class SalonSocialReservaCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    salon_id: int
+    fecha: date
+    incluye_aseo: bool = False
+    notas: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+
+class SalonSocialReservaEstadoIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    estado: str = Field(pattern="^(confirmado|cancelado|pendiente_pago|pendiente_aprobacion)$")
+    motivo: Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)] | None = None
+
+
+class SalonSocialPagoIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    referencia_pago: Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)] | None = None
+    notas: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+
 class MovimientoCarteraCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
