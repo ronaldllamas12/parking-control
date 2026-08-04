@@ -1,27 +1,27 @@
 import type { AxiosError } from 'axios'
 import {
-    CalendarDays,
-    CreditCard,
-    Download,
-    ExternalLink,
-    FileImage,
-    Home,
-    MessageSquare,
-    QrCode,
-    RefreshCw,
-    Send,
-    ShieldCheck,
-    Upload,
-    Wallet,
-    Waves,
+  CalendarDays,
+  CreditCard,
+  Download,
+  ExternalLink,
+  FileImage,
+  Home,
+  MessageSquare,
+  QrCode,
+  RefreshCw,
+  Send,
+  ShieldCheck,
+  Upload,
+  Wallet,
+  Waves,
 } from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
-    enviarComprobantePago,
-    enviarMensajeAdmin,
-    listarComprobantesPropietario,
-    obtenerDashboardPropietario,
-    obtenerMensajesConversacion,
+  enviarComprobantePago,
+  enviarMensajeAdmin,
+  listarComprobantesPropietario,
+  obtenerDashboardPropietario,
+  obtenerMensajesConversacion,
 } from '../../api/propietarioDashboard'
 import type { ApiErrorBody, ComprobantePagoOut, PropietarioDashboardOut, TelegramMessageOut } from '../../types'
 import { createOwnerQrDataUrl, qrFileName } from '../../utils/qrDownload'
@@ -201,7 +201,7 @@ export default function PropietarioDashboard() {
       <div className="rounded-3xl bg-gradient-dark p-5 sm:p-6 text-white shadow-float">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-white/55">Mi cuenta</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-white/55">Bienvenido</p>
             <h1 className="mt-1 text-2xl font-extrabold">{propietario.nombre}</h1>
             <p className="mt-1 flex items-center gap-2 text-sm text-white/65">
               <Home className="h-4 w-4" />
@@ -217,11 +217,11 @@ export default function PropietarioDashboard() {
               aria-label="Descargar QR"
             >
               {downloadingQr
-                ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                : <QrCode className="h-4 w-4 text-white" />}
+                ? <span className="h-12 w-12 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                : <QrCode className="h-10 w-10 text-white" />}
             </button>
             <button onClick={() => { void load() }} className="btn-icon bg-white/10 border-white/20 hover:bg-white/20" aria-label="Actualizar">
-              <RefreshCw className="h-4 w-4 text-white" />
+              <RefreshCw className="h-6 w-6 text-white" />
             </button>
           </div>
         </div>
@@ -234,14 +234,14 @@ export default function PropietarioDashboard() {
         <div className="stat-card">
           <div className="stat-icon bg-blue-100 text-blue-700"><Wallet className="h-5 w-5" /></div>
           <div>
-            <p className="text-xs text-slate-500">Saldo pendiente</p>
+            <p className="text-xs text-red-700">Saldo pendiente</p>
             <p className={`text-lg font-extrabold ${saldo > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>{money(saldo)}</p>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon bg-emerald-100 text-emerald-700"><ShieldCheck className="h-5 w-5" /></div>
           <div>
-            <p className="text-xs text-slate-500">Estado</p>
+            <p className="text-xs text-sky-700 ">Estado</p>
             <p className="text-lg font-extrabold text-slate-900">{dashboard.estado_cuenta.estado_cuenta === 'al_dia' ? 'Al día' : 'En mora'}</p>
           </div>
         </div>
@@ -250,23 +250,23 @@ export default function PropietarioDashboard() {
             <Waves className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs text-slate-500">Amenidades</p>
+            <p className="text-xs text-blue-800">Amenidades</p>
             <p className={`text-lg font-extrabold ${propietario.amenidades_suspendidas ? 'text-orange-700' : 'text-teal-700'}`}>
               {propietario.amenidades_suspendidas ? 'Suspendidas' : 'Habilitadas'}
             </p>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon bg-amber-100 text-amber-700"><CalendarDays className="h-5 w-5" /></div>
+          <div className="stat-icon bg-amber-100 text-amber-700"><CalendarDays className="h-7 w-7" /></div>
           <div>
-            <p className="text-xs text-slate-500">Próximo vencimiento</p>
+            <p className="text-xs text-sky-700">Próximo vencimiento</p>
             <p className="text-sm font-bold text-slate-900">{dateLabel(dashboard.proximo_vencimiento)}</p>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon bg-sky-100 text-sky-700"><CreditCard className="h-5 w-5" /></div>
           <div>
-            <p className="text-xs text-slate-500">Último pago</p>
+            <p className="text-xs text-sky-700">Último pago</p>
             <p className="text-sm font-bold text-slate-900">{dateLabel(dashboard.ultimo_pago)}</p>
           </div>
         </div>
@@ -280,9 +280,29 @@ export default function PropietarioDashboard() {
               <p className="text-xs text-slate-500">{cargos.length} cargos · {abonos.length} abonos</p>
             </div>
             {dashboard.payment_link_url ? (
-              <a href={dashboard.payment_link_url} target="_blank" rel="noreferrer" className="btn-primary px-4 py-2 text-xs">
-                <CreditCard className="h-4 w-4" />Pagar<ExternalLink className="h-3.5 w-3.5" />
+            <div className="relative inline-flex">
+              <span className="absolute inset-0 rounded-lg bg-emerald-400 opacity-20 animate-ping scale-70"></span>
+
+              <a
+                href={dashboard.payment_link_url}
+                target="_blank"
+                rel="noreferrer"
+                className="
+                  relative
+                  btn-primary
+                  px-4
+                  py-2
+                  text-xs
+                  hover:scale-105
+                  transition-all
+                  duration-500
+                "
+              >
+                <CreditCard className="h-4 w-4" />
+                Pagar
+                <ExternalLink className="h-3.5 w-3.5" />
               </a>
+            </div>
             ) : (
               <span className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-400">
                 Pago no configurado
@@ -291,7 +311,7 @@ export default function PropietarioDashboard() {
           </div>
           <div className="overflow-x-auto rounded-2xl border border-slate-200">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-800">
                 <tr>
                   <th className="px-3 py-3 text-left">Fecha</th>
                   <th className="px-3 py-3 text-left">Concepto</th>
@@ -309,7 +329,7 @@ export default function PropietarioDashboard() {
                       <p className="font-semibold text-slate-800">{m.concepto_nombre ?? m.referencia ?? m.tipo}</p>
                       {m.notas && <p className="text-xs text-slate-400">{m.notas}</p>}
                     </td>
-                    <td className={`px-3 py-3 text-right font-bold ${m.tipo === 'abono' ? 'text-emerald-700' : 'text-slate-800'}`}>
+                    <td className={`px-3 py-3 text-right font-bold ${m.tipo === 'abono' ? 'text-green-600' : 'text-red-800'}`}>
                       {m.tipo === 'abono' ? '-' : ''}{money(m.monto_centavos)}
                     </td>
                     <td className="px-3 py-3 text-right font-bold text-slate-900">{money(m.saldo_acumulado_centavos)}</td>
@@ -348,7 +368,7 @@ export default function PropietarioDashboard() {
                             <img
                               src={url}
                               alt="Imagen adjunta"
-                              className="max-h-48 w-full rounded-xl object-cover border border-white/20"
+                              className="max-h-20 w-20 rounded-xl object-cover border border-white/20"
                             />
                             <span className="mt-0.5 flex items-center gap-1 text-[10px] opacity-70">
                               <Download className="h-3 w-3" />Ver imagen completa

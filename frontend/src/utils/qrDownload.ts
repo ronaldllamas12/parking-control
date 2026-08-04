@@ -63,7 +63,6 @@ export async function createOwnerQrDataUrl(uid: string, nombre: string): Promise
 
   ctx.fillStyle = '#475569d7'
   ctx.font = '600 14px Arial, sans-serif'
-  ctx.fillText(`ID : ${uid}`, canvas.width / 2, 125)
 
   ctx.drawImage(qrImage, 50, 132, 320, 320)
 

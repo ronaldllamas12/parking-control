@@ -1,30 +1,32 @@
 import type { AxiosError } from 'axios'
 import {
-  CalendarDays,
-  CheckCircle2,
-  CreditCard,
-  ImageOff,
-  RefreshCw,
-  Send,
-  Upload,
-  Users,
-  XCircle,
+    CalendarDays,
+    CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
+    CreditCard,
+    ImageOff,
+    RefreshCw,
+    Send,
+    Upload,
+    Users,
+    XCircle,
 } from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import {
-  moneySalon,
-  propietarioCalendarioSalones,
-  propietarioCancelarReservaSalon,
-  propietarioCrearReservaSalon,
-  propietarioListarSalones,
-  propietarioReportarPagoSalon,
-  propietarioReservasSalones,
+    moneySalon,
+    propietarioCalendarioSalones,
+    propietarioCancelarReservaSalon,
+    propietarioCrearReservaSalon,
+    propietarioListarSalones,
+    propietarioReportarPagoSalon,
+    propietarioReservasSalones,
 } from '../../api/salonesSociales'
 import type {
-  ApiErrorBody,
-  SalonSocialCalendarDayOut,
-  SalonSocialOut,
-  SalonSocialReservaOut,
+    ApiErrorBody,
+    SalonSocialCalendarDayOut,
+    SalonSocialOut,
+    SalonSocialReservaOut,
 } from '../../types'
 
 function isoDate(offset = 0): string {
@@ -62,6 +64,8 @@ export default function ReservarSalonSocial() {
   const [selectedSalonId, setSelectedSalonId] = useState<number | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [incluyeAseo, setIncluyeAseo] = useState(false)
+  const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear())
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth())
   const [notas, setNotas] = useState('')
   const [paymentReservaId, setPaymentReservaId] = useState<number | null>(null)
   const [referencia, setReferencia] = useState('')
@@ -83,6 +87,43 @@ export default function ReservarSalonSocial() {
     () => calendar.filter((item) => item.salon_id === selectedSalonId),
     [calendar, selectedSalonId],
   )
+
+  const dayMap = useMemo(() => {
+    const map: Record<string, SalonSocialCalendarDayOut> = {}
+    for (const day of daysForSalon) map[day.fecha] = day
+    return map
+  }, [daysForSalon])
+
+  const calendarGrid = useMemo(() => {
+    const firstDay = new Date(calendarYear, calendarMonth, 1)
+    const lastDay = new Date(calendarYear, calendarMonth + 1, 0)
+    const startOffset = (firstDay.getDay() + 6) % 7 // Monday = 0
+    const grid: (string | null)[] = []
+    for (let i = 0; i < startOffset; i++) grid.push(null)
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+      grid.push(
+        `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+      )
+    }
+    while (grid.length % 7 !== 0) grid.push(null)
+    return grid
+  }, [calendarYear, calendarMonth])
+
+  const todayStr = isoDate()
+  const maxCalDate = new Date(); maxCalDate.setDate(maxCalDate.getDate() + 60)
+  const canGoPrev = calendarYear > new Date().getFullYear() || calendarMonth > new Date().getMonth()
+  const canGoNext = calendarYear < maxCalDate.getFullYear() || (calendarYear === maxCalDate.getFullYear() && calendarMonth < maxCalDate.getMonth())
+
+  const goPrevMonth = () => {
+    if (!canGoPrev) return
+    if (calendarMonth === 0) { setCalendarYear((y) => y - 1); setCalendarMonth(11) }
+    else setCalendarMonth((m) => m - 1)
+  }
+  const goNextMonth = () => {
+    if (!canGoNext) return
+    if (calendarMonth === 11) { setCalendarYear((y) => y + 1); setCalendarMonth(0) }
+    else setCalendarMonth((m) => m + 1)
+  }
 
   const load = async () => {
     setLoading(true)
@@ -249,35 +290,118 @@ export default function ReservarSalonSocial() {
 
         <div className="space-y-6">
           <section className="card-lg p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900"><CalendarDays className="h-5 w-5 text-teal-700" />Disponibilidad</h2>
-                <p className="text-xs text-slate-500">Solo puedes seleccionar fechas disponibles.</p>
+            <div className="mb-4 flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-teal-600" />
+              <div className="flex-1">
+                <h2 className="text-lg font-extrabold text-slate-900">Disponibilidad</h2>
+                <p className="text-xs text-slate-500">Selecciona una fecha disponible para reservar.</p>
               </div>
             </div>
-            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {daysForSalon.map((item) => {
-                const selected = selectedDate === item.fecha
+
+            {/* Month navigation */}
+            <div className="mb-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={goPrevMonth}
+                disabled={!canGoPrev}
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <p className="flex-1 text-center text-sm font-extrabold capitalize text-slate-800">
+                {new Date(calendarYear, calendarMonth).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}
+              </p>
+              <button
+                type="button"
+                onClick={goNextMonth}
+                disabled={!canGoNext}
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Weekday headers */}
+            <div className="mb-1 grid grid-cols-7 text-center">
+              {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => (
+                <div key={d} className="py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">{d}</div>
+              ))}
+            </div>
+
+            {/* Calendar grid */}
+            <div className="grid grid-cols-7 gap-1">
+              {calendarGrid.map((fecha, idx) => {
+                if (!fecha) return <div key={`empty-${idx}`} className="aspect-square" />
+                const item = dayMap[fecha]
+                const isSelected = selectedDate === fecha
+                const isToday = fecha === todayStr
+                const isAvailable = item?.disponible ?? false
+
+                if (!item) {
+                  return (
+                    <div key={fecha} className="flex aspect-square items-center justify-center rounded-xl text-xs font-medium text-slate-200">
+                      {new Date(`${fecha}T00:00:00`).getDate()}
+                    </div>
+                  )
+                }
+
                 return (
                   <button
-                    key={`${item.salon_id}-${item.fecha}`}
+                    key={fecha}
                     type="button"
-                    disabled={!item.disponible}
-                    onClick={() => setSelectedDate(item.fecha)}
-                    className={`min-h-[74px] rounded-2xl border px-3 py-2 text-left transition-all ${
-                      selected
-                        ? 'border-teal-500 bg-teal-600 text-white shadow-brand'
-                        : item.disponible
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400'
-                          : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                    disabled={!isAvailable}
+                    onClick={() => setSelectedDate(fecha)}
+                    className={`relative flex aspect-square flex-col items-center justify-center rounded-xl transition-all ${
+                      isSelected
+                        ? 'scale-105 bg-teal-600 text-white shadow-lg shadow-teal-200'
+                        : isAvailable
+                          ? 'border border-teal-200 bg-white text-teal-800 hover:scale-105 hover:border-teal-400 hover:bg-teal-50 hover:shadow-md'
+                          : 'cursor-not-allowed bg-slate-50 text-slate-300'
                     }`}
                   >
-                    <p className="text-sm font-extrabold">{new Date(`${item.fecha}T00:00:00`).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</p>
-                    <p className="mt-1 text-[11px] font-bold">{item.disponible ? 'Disponible' : statusLabel(item.estado_visual)}</p>
+                    {isToday && (
+                      <span className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${
+                        isSelected ? 'bg-teal-200' : 'bg-blue-500'
+                      }`} />
+                    )}
+                    <span className={`text-sm font-extrabold leading-none ${!isAvailable && !isSelected ? 'line-through' : ''}`}>
+                      {new Date(`${fecha}T00:00:00`).getDate()}
+                    </span>
+                    <span className={`mt-0.5 text-[8px] font-bold uppercase leading-none ${
+                      isSelected ? 'text-teal-100' : isAvailable ? 'text-teal-500' : 'text-slate-300'
+                    }`}>
+                      {isAvailable ? 'libre' : 'ocupado'}
+                    </span>
                   </button>
                 )
               })}
             </div>
+
+            {/* Legend */}
+            <div className="mt-3 flex flex-wrap gap-3 border-t border-slate-100 pt-3">
+              {[
+                { color: 'bg-white border border-teal-300', label: 'Disponible' },
+                { color: 'bg-teal-600', label: 'Seleccionado' },
+                { color: 'bg-slate-100', label: 'No disponible' },
+                { color: 'bg-blue-500 rounded-full', label: 'Hoy' },
+              ].map(({ color, label }) => (
+                <span key={label} className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500">
+                  <span className={`h-3 w-3 rounded-sm ${color}`} />
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            {/* Selected date callout */}
+            {selectedDate && (
+              <div className="mt-3 flex items-center gap-2 rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-50 to-emerald-50 px-4 py-2.5">
+                <CalendarDays className="h-4 w-4 flex-shrink-0 text-teal-600" />
+                <div>
+                  <p className="text-xs font-bold text-teal-800">{formatDate(selectedDate)}</p>
+                  <p className="text-[10px] text-teal-600">Fecha seleccionada · completa el formulario abajo</p>
+                </div>
+              </div>
+            )}
           </section>
 
           <form onSubmit={(event) => { void handleReserve(event) }} className="card-lg p-5 space-y-4">
