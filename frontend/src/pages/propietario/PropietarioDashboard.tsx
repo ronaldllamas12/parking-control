@@ -2,15 +2,18 @@ import type { AxiosError } from 'axios'
 import {
     CalendarDays,
     CreditCard,
+    Download,
     ExternalLink,
     FileImage,
     Home,
     MessageSquare,
+    QrCode,
     RefreshCw,
     Send,
     ShieldCheck,
     Upload,
     Wallet,
+    Waves,
 } from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -21,6 +24,7 @@ import {
     obtenerMensajesConversacion,
 } from '../../api/propietarioDashboard'
 import type { ApiErrorBody, ComprobantePagoOut, PropietarioDashboardOut, TelegramMessageOut } from '../../types'
+import { createOwnerQrDataUrl, qrFileName } from '../../utils/qrDownload'
 
 function money(centavos?: number | null): string {
   return `$${Math.round((centavos ?? 0) / 100).toLocaleString('es-CO')} COP`
@@ -28,6 +32,21 @@ function money(centavos?: number | null): string {
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+function imageUrlsFromText(text: string): string[] {
+  const urls = text.match(/https?:\/\/[^\s]+/g) ?? []
+  return urls
+    .map((url) => url.replace(/[),.;]+$/, ''))
+    .filter((url) => /res\.cloudinary\.com|\/image\/upload\/|\.(png|jpe?g|webp|gif)(\?|$)/i.test(url))
+}
+
+function textWithoutImageUrls(text: string, imageUrls: string[]): string {
+  let cleaned = text
+  for (const url of imageUrls) {
+    cleaned = cleaned.replace(url, '').replace('Imagen:', '')
+  }
+  return cleaned.split('\n').map((l) => l.trim()).filter(Boolean).join('\n')
 }
 
 function dateLabel(value?: string | null): string {
@@ -53,6 +72,7 @@ export default function PropietarioDashboard() {
   const [file, setFile] = useState<File | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [downloadingQr, setDownloadingQr] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const load = async () => {
@@ -109,6 +129,25 @@ export default function PropietarioDashboard() {
       setError(axiosErr.response?.data?.detail ?? 'No se pudo enviar el mensaje')
     } finally {
       setSavingMessage(false)
+    }
+  }
+
+  const handleDownloadQr = async () => {
+    if (!dashboard) return
+    setDownloadingQr(true)
+    try {
+      const { propietario: p } = dashboard
+      const qrDataUrl = await createOwnerQrDataUrl(p.uid, p.nombre)
+      const anchor = document.createElement('a')
+      anchor.href = qrDataUrl
+      anchor.download = qrFileName(p.nombre, p.uid)
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+    } catch {
+      setError('No se pudo generar el código QR')
+    } finally {
+      setDownloadingQr(false)
     }
   }
 
@@ -169,16 +208,29 @@ export default function PropietarioDashboard() {
               Torre {propietario.torre} · Apartamento {propietario.apartamento}
             </p>
           </div>
-          <button onClick={() => { void load() }} className="btn-icon bg-white/10 border-white/20 hover:bg-white/20" aria-label="Actualizar">
-            <RefreshCw className="h-4 w-4 text-white" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { void handleDownloadQr() }}
+              disabled={downloadingQr}
+              className="btn-icon bg-white/10 border-white/20 hover:bg-white/20"
+              title="Descargar mi código QR"
+              aria-label="Descargar QR"
+            >
+              {downloadingQr
+                ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                : <QrCode className="h-4 w-4 text-white" />}
+            </button>
+            <button onClick={() => { void load() }} className="btn-icon bg-white/10 border-white/20 hover:bg-white/20" aria-label="Actualizar">
+              <RefreshCw className="h-4 w-4 text-white" />
+            </button>
+          </div>
         </div>
       </div>
 
       {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
       {notice && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</div>}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="stat-card">
           <div className="stat-icon bg-blue-100 text-blue-700"><Wallet className="h-5 w-5" /></div>
           <div>
@@ -191,6 +243,17 @@ export default function PropietarioDashboard() {
           <div>
             <p className="text-xs text-slate-500">Estado</p>
             <p className="text-lg font-extrabold text-slate-900">{dashboard.estado_cuenta.estado_cuenta === 'al_dia' ? 'Al día' : 'En mora'}</p>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className={`stat-icon ${propietario.amenidades_suspendidas ? 'bg-orange-100 text-orange-700' : 'bg-teal-100 text-teal-700'}`}>
+            <Waves className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-500">Amenidades</p>
+            <p className={`text-lg font-extrabold ${propietario.amenidades_suspendidas ? 'text-orange-700' : 'text-teal-700'}`}>
+              {propietario.amenidades_suspendidas ? 'Suspendidas' : 'Habilitadas'}
+            </p>
           </div>
         </div>
         <div className="stat-card">
@@ -266,23 +329,39 @@ export default function PropietarioDashboard() {
               {conversationMessages.length === 0 ? (
                 <p className="py-4 text-center text-xs text-slate-400">No hay mensajes aún. Escribe el primero.</p>
               ) : (
-                conversationMessages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.sender_role === 'propietario' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                      msg.sender_role === 'propietario'
-                        ? 'bg-blue-600 text-white'
-                        : 'border border-slate-200 bg-white text-slate-800'
-                    }`}>
-                      {msg.sender_role !== 'propietario' && (
-                        <p className="mb-1 text-[10px] font-bold text-blue-600">Administración</p>
-                      )}
-                      <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                      <p className={`mt-1 text-[10px] ${msg.sender_role === 'propietario' ? 'text-blue-200' : 'text-slate-400'}`}>
-                        {formatDateTime(msg.created_at)}
-                      </p>
+                conversationMessages.map((msg) => {
+                  const imgs = imageUrlsFromText(msg.text)
+                  const cleanText = imgs.length > 0 ? textWithoutImageUrls(msg.text, imgs) : msg.text
+                  return (
+                    <div key={msg.id} className={`flex ${msg.sender_role === 'propietario' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                        msg.sender_role === 'propietario'
+                          ? 'bg-blue-600 text-white'
+                          : 'border border-slate-200 bg-white text-slate-800'
+                      }`}>
+                        {msg.sender_role !== 'propietario' && (
+                          <p className="mb-1 text-[10px] font-bold text-blue-600">Administración</p>
+                        )}
+                        {cleanText ? <p className="whitespace-pre-wrap break-words">{cleanText}</p> : null}
+                        {imgs.map((url) => (
+                          <a key={url} href={url} target="_blank" rel="noreferrer" className="mt-1.5 block">
+                            <img
+                              src={url}
+                              alt="Imagen adjunta"
+                              className="max-h-48 w-full rounded-xl object-cover border border-white/20"
+                            />
+                            <span className="mt-0.5 flex items-center gap-1 text-[10px] opacity-70">
+                              <Download className="h-3 w-3" />Ver imagen completa
+                            </span>
+                          </a>
+                        ))}
+                        <p className={`mt-1 text-[10px] ${msg.sender_role === 'propietario' ? 'text-blue-200' : 'text-slate-400'}`}>
+                          {formatDateTime(msg.created_at)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  )
+                })
               )}
               <div ref={messagesEndRef} />
             </div>
