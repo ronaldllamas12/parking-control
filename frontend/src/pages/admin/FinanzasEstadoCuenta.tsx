@@ -97,6 +97,17 @@ function MovimientoModal({
       setError('Ingresa un monto válido mayor a 0')
       return
     }
+    if (multasSeleccionadas.length > 0) {
+      const totalMultas = multasPendientes
+        .filter((m) => multasSeleccionadas.includes(m.id))
+        .reduce((s, m) => s + m.monto_centavos, 0)
+      if (Math.round(valor * 100) < totalMultas) {
+        setError(
+          `El pago ($${Math.round(valor).toLocaleString('es-CO')} COP) no cubre el total de las multas seleccionadas ($${Math.round(totalMultas / 100).toLocaleString('es-CO')} COP). Aumente el monto o seleccione menos multas.`,
+        )
+        return
+      }
+    }
     setSaving(true)
     setError(null)
     const payload: MovimientoCarteraCreate = {
@@ -193,16 +204,24 @@ function MovimientoModal({
                   </div>
                 </label>
               ))}
-              {multasSeleccionadas.length > 0 && (
-                <p className="text-xs font-semibold text-orange-700 text-right">
-                  Total seleccionado:{' '}
-                  {formatCop(
-                    multasPendientes
-                      .filter((m) => multasSeleccionadas.includes(m.id))
-                      .reduce((s, m) => s + m.monto_centavos, 0),
-                  )}
-                </p>
-              )}
+              {multasSeleccionadas.length > 0 && (() => {
+                const totalMultas = multasPendientes
+                  .filter((m) => multasSeleccionadas.includes(m.id))
+                  .reduce((s, m) => s + m.monto_centavos, 0)
+                const excedente = Math.round(Number(monto) * 100) - totalMultas
+                return (
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-orange-700 text-right">
+                      Total multas: {formatCop(totalMultas)}
+                    </p>
+                    {excedente > 0 && (
+                      <p className="text-xs font-semibold text-emerald-700 text-right">
+                        Excedente → expensas: {formatCop(excedente)}
+                      </p>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           )}
 

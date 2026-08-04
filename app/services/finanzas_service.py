@@ -616,14 +616,63 @@ def crear_movimiento_cartera(
         created_at=datetime.now(timezone.utc),
     )
     db.add(mov)
-    # Mark selected multa cargos as paid when registering an abono
+    # Validate and mark selected multa cargos as paid when registering an abono
     if payload.tipo == "abono" and payload.multa_ids:
-        db.query(models.MovimientoCartera).filter(
-            models.MovimientoCartera.id.in_(payload.multa_ids),
-            models.MovimientoCartera.propietario_id == propietario.id,
-            models.MovimientoCartera.tipo == "cargo",
-            models.MovimientoCartera.pagado.isnot(True),
-        ).update({"pagado": True}, synchronize_session=False)
+        multas = (
+            db.query(models.MovimientoCartera)
+            .filter(
+                models.MovimientoCartera.id.in_(payload.multa_ids),
+                models.MovimientoCartera.propietario_id == propietario.id,
+                models.MovimientoCartera.tipo == "cargo",
+                models.MovimientoCartera.pagado.isnot(True),
+            )
+            .all()
+        )
+        total_multas = sum(m.monto_centavos for m in multas)
+        if payload.monto_centavos < total_multas:
+            raise ValueError(
+                f"El pago ({payload.monto_centavos / 100:,.0f} COP) es menor que el total "
+                f"de las multas seleccionadas ({total_multas / 100:,.0f} COP). "
+                "Aumente el monto o seleccione menos multas."
+            )
+        for multa in multas:
+            multa.pagado = True
+
+        excedente = payload.monto_centavos - total_multas
+        if excedente > 0:
+            # Redirect the excess to a regular expensas abono concept
+            concepto_expensas = (
+                db.query(models.ConceptoMovimiento)
+                .filter(
+                    models.ConceptoMovimiento.conjunto_id == conjunto_id,
+                    models.ConceptoMovimiento.tipo == "abono",
+                    models.ConceptoMovimiento.activo.is_(True),
+                    func.lower(models.ConceptoMovimiento.nombre).in_(
+                        ["pago administración", "pago administracion", "abono parcial"]
+                    ),
+                )
+                .order_by(models.ConceptoMovimiento.id.asc())
+                .first()
+            )
+            # Split: cap the main movement to the multa total, add second for the excess
+            mov.monto_centavos = total_multas
+            mov.notas = payload.notas or f"Pago de {len(multas)} multa(s)"
+            db.add(
+                models.MovimientoCartera(
+                    conjunto_id=conjunto_id,
+                    propietario_id=propietario.id,
+                    concepto_id=concepto_expensas.id if concepto_expensas else payload.concepto_id,
+                    tipo="abono",
+                    monto_centavos=excedente,
+                    fecha=payload.fecha,
+                    periodo=periodo,
+                    referencia=payload.referencia,
+                    notas="Excedente aplicado a expensas",
+                    created_by=created_by,
+                    pagado=None,
+                    created_at=datetime.now(timezone.utc),
+                )
+            )
     db.flush()
     sync_estado_cuenta(db, propietario)
     db.commit()
