@@ -488,6 +488,7 @@ class MovimientoCarteraOut(BaseModel):
     concepto_id: int | None = None
     concepto_nombre: str | None = None
     created_by: str | None = None
+    pagado: bool | None = None
     created_at: datetime
     saldo_acumulado_centavos: int = 0
 
@@ -646,6 +647,18 @@ class MovimientoCarteraCreate(BaseModel):
     ] | None = None
     referencia: Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)] | None = None
     notas: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+    multa_ids: list[int] | None = None
+
+
+class MultaPendienteOut(BaseModel):
+    id: int
+    fecha: date
+    monto_centavos: int
+    referencia: str | None = None
+    notas: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MovimientoCarteraUpdate(BaseModel):

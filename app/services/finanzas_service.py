@@ -197,6 +197,61 @@ def _cargo_periodo_actual(db: Session, propietario_id: int) -> int:
     return int(row or 0)
 
 
+def _tiene_multa_pendiente(db: Session, propietario_id: int, saldo: int | None = None) -> bool:
+    """True when the propietario has at least one unpaid multa cargo."""
+    base_q = (
+        db.query(models.MovimientoCartera.id)
+        .join(
+            models.ConceptoMovimiento,
+            models.MovimientoCartera.concepto_id == models.ConceptoMovimiento.id,
+        )
+        .filter(
+            models.MovimientoCartera.propietario_id == propietario_id,
+            models.MovimientoCartera.tipo == "cargo",
+            func.lower(models.ConceptoMovimiento.nombre) == "multa",
+        )
+    )
+    # Explicitly unpaid (new tracking)
+    if base_q.filter(models.MovimientoCartera.pagado.is_(False)).first() is not None:
+        return True
+    # Legacy (NULL = pre-feature): treat as pending when balance is positive
+    if base_q.filter(models.MovimientoCartera.pagado.is_(None)).first() is None:
+        return False
+    if saldo is None:
+        saldo = saldo_propietario(db, propietario_id)
+    return saldo > 0
+
+
+def listar_multas_pendientes(
+    db: Session, conjunto_id: UUID, uid: str
+) -> list[models.MovimientoCartera]:
+    propietario = (
+        db.query(models.Propietario)
+        .filter(
+            models.Propietario.conjunto_id == conjunto_id,
+            models.Propietario.uid == uid.upper(),
+        )
+        .first()
+    )
+    if not propietario:
+        return []
+    return (
+        db.query(models.MovimientoCartera)
+        .join(
+            models.ConceptoMovimiento,
+            models.MovimientoCartera.concepto_id == models.ConceptoMovimiento.id,
+        )
+        .filter(
+            models.MovimientoCartera.propietario_id == propietario.id,
+            models.MovimientoCartera.tipo == "cargo",
+            func.lower(models.ConceptoMovimiento.nombre) == "multa",
+            models.MovimientoCartera.pagado.isnot(True),
+        )
+        .order_by(models.MovimientoCartera.fecha.asc())
+        .all()
+    )
+
+
 def _calcular_estado_mora(saldo: int, cargo_mes_actual: int) -> str:
     """Determina el estado de cuenta aplicando la gracia del mes en curso.
 
@@ -215,14 +270,10 @@ def sync_estado_cuenta(db: Session, propietario: models.Propietario) -> str:
     saldo = saldo_propietario(db, propietario.id)
     cargo_actual = _cargo_periodo_actual(db, propietario.id)
     nuevo = _calcular_estado_mora(saldo, cargo_actual)
-    changed = propietario.estado_cuenta != nuevo
-    if changed:
+    debe_suspender = nuevo == "en_mora" or _tiene_multa_pendiente(db, propietario.id, saldo)
+    if propietario.estado_cuenta != nuevo or propietario.amenidades_suspendidas != debe_suspender:
         propietario.estado_cuenta = nuevo
-        if nuevo == "en_mora":
-            propietario.amenidades_suspendidas = True
-        else:
-            # Al recuperar el día, liberar la suspensión automática por deuda
-            propietario.amenidades_suspendidas = False
+        propietario.amenidades_suspendidas = debe_suspender
         db.flush()
     return nuevo
 
@@ -240,13 +291,10 @@ def sync_estados_conjunto(db: Session, conjunto_id: UUID) -> int:
         saldo = saldo_propietario(db, p.id)
         cargo_actual = _cargo_periodo_actual(db, p.id)
         nuevo = _calcular_estado_mora(saldo, cargo_actual)
-        if p.estado_cuenta != nuevo:
+        debe_suspender = nuevo == "en_mora" or _tiene_multa_pendiente(db, p.id, saldo)
+        if p.estado_cuenta != nuevo or p.amenidades_suspendidas != debe_suspender:
             p.estado_cuenta = nuevo
-            p.amenidades_suspendidas = nuevo == "en_mora"
-            actualizados += 1
-        elif nuevo == "al_dia" and p.amenidades_suspendidas:
-            # amenidades quedó True por deuda antigua; limpiar
-            p.amenidades_suspendidas = False
+            p.amenidades_suspendidas = debe_suspender
             actualizados += 1
     db.commit()
     return actualizados
@@ -531,6 +579,7 @@ def crear_movimiento_cartera(
     if not propietario:
         return None
 
+    concepto: models.ConceptoMovimiento | None = None
     if payload.concepto_id is not None:
         concepto = (
             db.query(models.ConceptoMovimiento)
@@ -546,6 +595,12 @@ def crear_movimiento_cartera(
             raise ValueError("El concepto no corresponde al tipo de movimiento")
 
     periodo = payload.periodo or _periodo_from_date(payload.fecha)
+    # Set pagado=False for new multa cargos so they appear in the pending list
+    is_multa_cargo = (
+        payload.tipo == "cargo"
+        and concepto is not None
+        and concepto.nombre.lower() == "multa"
+    )
     mov = models.MovimientoCartera(
         conjunto_id=conjunto_id,
         propietario_id=propietario.id,
@@ -557,9 +612,18 @@ def crear_movimiento_cartera(
         referencia=payload.referencia,
         notas=payload.notas,
         created_by=created_by,
+        pagado=False if is_multa_cargo else None,
         created_at=datetime.now(timezone.utc),
     )
     db.add(mov)
+    # Mark selected multa cargos as paid when registering an abono
+    if payload.tipo == "abono" and payload.multa_ids:
+        db.query(models.MovimientoCartera).filter(
+            models.MovimientoCartera.id.in_(payload.multa_ids),
+            models.MovimientoCartera.propietario_id == propietario.id,
+            models.MovimientoCartera.tipo == "cargo",
+            models.MovimientoCartera.pagado.isnot(True),
+        ).update({"pagado": True}, synchronize_session=False)
     db.flush()
     sync_estado_cuenta(db, propietario)
     db.commit()

@@ -190,6 +190,15 @@ def get_estado_cuenta(
     return cuenta
 
 
+@router.get("/propietarios/{uid}/multas-pendientes", response_model=list[schemas.MultaPendienteOut])
+def get_multas_pendientes(
+    uid: str,
+    current_user=Depends(role_required(["admin"])),
+    db: Session = Depends(get_db),
+):
+    return finanzas_service.listar_multas_pendientes(db, current_user.conjunto_id, uid)
+
+
 @router.post("/propietarios/{uid}/movimientos", response_model=schemas.EstadoCuentaOut)
 def post_movimiento(
     uid: str,

@@ -239,22 +239,17 @@ async def responder_conversacion(
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
 
     propietario = conversation.propietario
-    if not propietario.telegram_chat_id:
-        raise HTTPException(status_code=400, detail="El propietario no tiene Telegram vinculado")
-
     conjunto = crud.get_conjunto_by_id(db, current_user.conjunto_id)
-    if not conjunto or not conjunto.telegram_bot_token:
-        raise HTTPException(status_code=400, detail="El conjunto no tiene token de bot Telegram configurado")
 
-    label = "Administración" if current_user.role == "admin" else "Vigilante"
-    sent = await send_message_direct(
-        conjunto.telegram_bot_token,
-        propietario.telegram_chat_id,
-        f"<b>{label}:</b>\n{escape(payload.mensaje)}",
-        reply_markup=_MENU_MARKUP,
-    )
-    if not sent:
-        raise HTTPException(status_code=502, detail="No se pudo enviar el mensaje por Telegram")
+    # Send via Telegram only when both sides are configured; never block on this
+    if propietario.telegram_chat_id and conjunto and conjunto.telegram_bot_token:
+        label = "Administración" if current_user.role == "admin" else "Vigilante"
+        await send_message_direct(
+            conjunto.telegram_bot_token,
+            propietario.telegram_chat_id,
+            f"<b>{label}:</b>\n{escape(payload.mensaje)}",
+            reply_markup=_MENU_MARKUP,
+        )
 
     return crud.add_telegram_message(
         db,

@@ -564,6 +564,7 @@ class MovimientoCartera(Base):
     referencia: Mapped[str | None] = mapped_column(String(120), nullable=True)
     notas: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    pagado: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

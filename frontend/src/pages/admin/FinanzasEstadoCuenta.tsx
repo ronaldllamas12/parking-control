@@ -1,27 +1,29 @@
 import type { AxiosError } from 'axios'
 import {
-  ArrowLeft,
-  Download,
-  FileSpreadsheet,
-  Plus,
-  Send,
-  Wallet,
-  X,
+    ArrowLeft,
+    Download,
+    FileSpreadsheet,
+    Plus,
+    Send,
+    Wallet,
+    X,
 } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
-  crearMovimientoCartera,
-  exportarEstadoCuentaExcel,
-  exportarEstadoCuentaPdf,
-  listarConceptos,
-  obtenerEstadoCuenta,
+    crearMovimientoCartera,
+    exportarEstadoCuentaExcel,
+    exportarEstadoCuentaPdf,
+    listarConceptos,
+    listarMultasPendientes,
+    obtenerEstadoCuenta,
 } from '../../api/finanzas'
 import type {
-  ApiErrorBody,
-  ConceptoMovimientoOut,
-  EstadoCuentaOut,
-  MovimientoCarteraCreate,
+    ApiErrorBody,
+    ConceptoMovimientoOut,
+    EstadoCuentaOut,
+    MovimientoCarteraCreate,
+    MultaPendienteOut,
 } from '../../types'
 
 function formatCop(centavos: number): string {
@@ -54,6 +56,8 @@ function MovimientoModal({
   const [referencia, setReferencia] = useState('')
   const [notas, setNotas] = useState('')
   const [conceptos, setConceptos] = useState<ConceptoMovimientoOut[]>([])
+  const [multasPendientes, setMultasPendientes] = useState<MultaPendienteOut[]>([])
+  const [multasSeleccionadas, setMultasSeleccionadas] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -61,6 +65,30 @@ function MovimientoModal({
     void listarConceptos(tipo).then(setConceptos).catch(() => setConceptos([]))
     setConceptoId('')
   }, [tipo])
+
+  useEffect(() => {
+    if (tipo === 'abono') {
+      void listarMultasPendientes(uid).then(setMultasPendientes).catch(() => setMultasPendientes([]))
+    } else {
+      setMultasPendientes([])
+      setMultasSeleccionadas([])
+    }
+  }, [tipo, uid])
+
+  // Auto-fill monto with sum of selected multas
+  useEffect(() => {
+    if (multasSeleccionadas.length === 0) return
+    const total = multasPendientes
+      .filter((m) => multasSeleccionadas.includes(m.id))
+      .reduce((acc, m) => acc + m.monto_centavos, 0)
+    setMonto(String(total / 100))
+  }, [multasSeleccionadas, multasPendientes])
+
+  const toggleMulta = (id: number) => {
+    setMultasSeleccionadas((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    )
+  }
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -78,6 +106,7 @@ function MovimientoModal({
       concepto_id: conceptoId === '' ? null : conceptoId,
       referencia: referencia.trim() || null,
       notas: notas.trim() || null,
+      multa_ids: multasSeleccionadas.length > 0 ? multasSeleccionadas : null,
     }
     try {
       const cuenta = await crearMovimientoCartera(uid, payload)
@@ -93,8 +122,8 @@ function MovimientoModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md">
-      <div className="card-lg w-full max-w-md animate-scale-in overflow-hidden">
-        <div className="px-5 py-4 flex items-center justify-between bg-gradient-to-r from-teal-600 to-emerald-500">
+      <div className="card-lg w-full max-w-md animate-scale-in overflow-hidden max-h-[92vh] flex flex-col">
+        <div className="px-5 py-4 flex items-center justify-between bg-gradient-to-r from-teal-600 to-emerald-500 flex-shrink-0">
           <h2 className="text-white font-bold text-base">Registrar movimiento</h2>
           <button
             type="button"
@@ -105,7 +134,7 @@ function MovimientoModal({
             <X className="w-4 h-4" />
           </button>
         </div>
-        <form onSubmit={(e) => { void handleSubmit(e) }} className="p-5 space-y-3">
+        <form onSubmit={(e) => { void handleSubmit(e) }} className="p-5 space-y-3 overflow-y-auto flex-1">
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -130,6 +159,53 @@ function MovimientoModal({
               Cargo
             </button>
           </div>
+
+          {/* Multas pendientes — only shown for abonos */}
+          {tipo === 'abono' && multasPendientes.length > 0 && (
+            <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
+              <p className="text-xs font-bold text-orange-800 flex items-center gap-1.5">
+                ⚠ Multas pendientes — selecciona las que cubre este pago
+              </p>
+              {multasPendientes.map((m) => (
+                <label
+                  key={m.id}
+                  className={`flex items-center gap-3 rounded-xl border px-3 py-2 cursor-pointer transition-colors ${
+                    multasSeleccionadas.includes(m.id)
+                      ? 'border-orange-400 bg-orange-100'
+                      : 'border-orange-200 bg-white hover:bg-orange-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={multasSeleccionadas.includes(m.id)}
+                    onChange={() => toggleMulta(m.id)}
+                    className="h-4 w-4 accent-orange-600 flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800">
+                      {formatCop(m.monto_centavos)}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {new Date(m.fecha).toLocaleDateString('es-CO', { dateStyle: 'medium' })}
+                      {m.referencia ? ` · ${m.referencia}` : ''}
+                    </p>
+                    {m.notas && <p className="text-xs text-slate-400 truncate">{m.notas}</p>}
+                  </div>
+                </label>
+              ))}
+              {multasSeleccionadas.length > 0 && (
+                <p className="text-xs font-semibold text-orange-700 text-right">
+                  Total seleccionado:{' '}
+                  {formatCop(
+                    multasPendientes
+                      .filter((m) => multasSeleccionadas.includes(m.id))
+                      .reduce((s, m) => s + m.monto_centavos, 0),
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="field-label">Monto (COP)</label>
             <input

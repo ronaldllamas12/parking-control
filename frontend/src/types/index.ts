@@ -253,6 +253,15 @@ export interface CarteraItemOut {
   telegram_chat_id?: string | null
 }
 
+export interface MultaPendienteOut {
+  id: number
+  fecha: string
+  monto_centavos: number
+  referencia?: string | null
+  notas?: string | null
+  created_at: string
+}
+
 export interface MovimientoCarteraOut {
   id: number
   tipo: 'cargo' | 'abono' | string
@@ -368,6 +377,7 @@ export interface MovimientoCarteraCreate {
   periodo?: string | null
   referencia?: string | null
   notas?: string | null
+  multa_ids?: number[] | null
 }
 
 export interface MovimientoCarteraUpdate {

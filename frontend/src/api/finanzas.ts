@@ -7,6 +7,7 @@ import type {
     MovimientoCarteraCreate,
     MovimientoCarteraListItem,
     MovimientoCarteraUpdate,
+    MultaPendienteOut,
 } from '../types'
 import apiClient from './axios'
 
@@ -52,6 +53,13 @@ export async function listarCartera(params?: {
 export async function obtenerEstadoCuenta(uid: string): Promise<EstadoCuentaOut> {
   const { data } = await apiClient.get<EstadoCuentaOut>(
     `/api/v1/finanzas/propietarios/${uid}/estado-cuenta`,
+  )
+  return data
+}
+
+export async function listarMultasPendientes(uid: string): Promise<MultaPendienteOut[]> {
+  const { data } = await apiClient.get<MultaPendienteOut[]>(
+    `/api/v1/finanzas/propietarios/${uid}/multas-pendientes`,
   )
   return data
 }

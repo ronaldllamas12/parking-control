@@ -1,52 +1,57 @@
 import type { AxiosError } from 'axios'
 import {
-  Building2,
-  Download,
-  Edit2,
-  FileSpreadsheet,
-  Filter,
-  Fingerprint,
-  Home,
-  KeyRound,
-  MessageSquare,
-  Phone,
-  Plus,
-  RefreshCw,
-  Save,
-  Search,
-  Send,
-  ShieldCheck,
-  ShieldX,
-  Trash2,
-  Upload,
-  Users,
-  X,
+    Bell,
+    Building2,
+    Download,
+    Edit2,
+    FileCheck2,
+    FileSpreadsheet,
+    Filter,
+    Fingerprint,
+    Home,
+    KeyRound,
+    Link2,
+    MessageSquare,
+    Phone,
+    Plus,
+    QrCode,
+    RefreshCw,
+    Save,
+    Search,
+    ShieldCheck,
+    ShieldX,
+    Trash2,
+    Upload,
+    UserCog,
+    Users,
+    Waves,
+    X
 } from 'lucide-react'
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { read as xlsxRead, utils as xlsxUtils, writeFile as xlsxWriteFile } from 'xlsx'
 import {
-  actualizarAmenidadesPropietario,
-  actualizarEstadoBulk,
-  actualizarPropietario,
-  crearCuentaPropietario,
-  descargarPazYSalvo,
-  eliminarHuella,
-  eliminarPropietario,
-  importarEstadoCsv,
-  listarPropietarios,
-  notificarPropietario,
-  registrarHuella,
-  registrarPropietariosBulk,
-  toggleAccesoPropietario,
+    actualizarAmenidadesPropietario,
+    actualizarEstadoBulk,
+    actualizarPropietario,
+    crearCuentaPropietario,
+    descargarPazYSalvo,
+    eliminarHuella,
+    eliminarPropietario,
+    importarEstadoCsv,
+    listarPropietarios,
+    notificarPropietario,
+    registrarHuella,
+    registrarPropietariosBulk,
+    toggleAccesoPropietario,
 } from '../../api/propietarios'
 import TelegramLinkModal from '../../components/TelegramLinkModal'
 import TelegramNotifyModal from '../../components/TelegramNotifyModal'
 import type { ApiErrorBody, BulkImportResult, PropietarioOut } from '../../types'
 import {
-  FingerprintError,
-  FingerprintReader,
-  isWebSerialSupported,
+    FingerprintError,
+    FingerprintReader,
+    isWebSerialSupported,
 } from '../../utils/fingerprintSerial'
 import { createOwnerQrDataUrl, qrFileName } from '../../utils/qrDownload'
 
@@ -1212,176 +1217,249 @@ export default function ListarPropietarios() {
           {filtered.map((p) => (
             <div
               key={p.uid}
-              className={`card p-4 flex items-center gap-3 hover:-translate-y-0.5 hover:shadow-card-lg transition-all duration-200 ${!p.acceso_habilitado ? 'opacity-75 border-rose-200' : ''}`}
+              className={`card p-0 overflow-hidden hover:-translate-y-0.5 hover:shadow-card-lg transition-all duration-200 ${!p.acceso_habilitado ? 'border-rose-200' : ''}`}
             >
-              <input
-                type="checkbox"
-                checked={selectedUids.includes(p.uid)}
-                onChange={() => toggleSelected(p.uid)}
-                className="h-4 w-4 flex-shrink-0 accent-brand-600"
-                aria-label={`Seleccionar ${p.nombre}`}
-              />
-              <div className="relative flex-shrink-0">
-                <img
-                  src={p.foto_url} alt={p.nombre}
-                  className={`h-14 w-14 rounded-2xl object-cover border-2 shadow-sm ${p.acceso_habilitado ? 'border-surface-200' : 'border-rose-300'}`}
-                  onError={(e) => { ;(e.target as HTMLImageElement).src = avatarSvg(p.nombre) }}
+              {/* ── Info section ───────────────────────────── */}
+              <div className="flex gap-3 p-4">
+                <input
+                  type="checkbox"
+                  checked={selectedUids.includes(p.uid)}
+                  onChange={() => toggleSelected(p.uid)}
+                  className="mt-1 h-4 w-4 flex-shrink-0 accent-brand-600"
+                  aria-label={`Seleccionar ${p.nombre}`}
                 />
-                {!p.acceso_habilitado && (
-                  <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center shadow-sm">
-                    <ShieldX className="w-3 h-3 text-white" />
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-slate-900">{p.nombre}</p>
-                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="badge-blue"><Building2 className="w-2.5 h-2.5" />T{p.torre}</span>
-                  <span className="badge bg-surface-100 text-slate-600 border border-surface-200"><Home className="w-2.5 h-2.5" />{p.apartamento}</span>
-                  {p.acceso_habilitado ? (
-                    <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                      <ShieldCheck className="w-2.5 h-2.5" />Acceso OK
-                    </span>
-                  ) : (
-                    <span className="badge bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
-                      <ShieldX className="w-2.5 h-2.5" />Denegado
-                    </span>
-                  )}
-                  <span className={`badge border flex items-center gap-1 ${
-                    p.estado_cuenta === 'al_dia'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-amber-50 text-amber-700 border-amber-200'
-                  }`}>
-                    {p.estado_cuenta === 'al_dia' ? 'Al día' : 'En mora'}
+                {/* Avatar with access dot */}
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={p.foto_url} alt={p.nombre}
+                    className="h-16 w-16 rounded-2xl object-cover border-2 border-surface-200 shadow-sm"
+                    onError={(e) => { ;(e.target as HTMLImageElement).src = avatarSvg(p.nombre) }}
+                  />
+                  <span className={`absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white shadow-sm ${p.acceso_habilitado ? 'bg-emerald-500' : 'bg-rose-500'}`}>
+                    {p.acceso_habilitado
+                      ? <ShieldCheck className="h-3 w-3 text-white" />
+                      : <ShieldX className="h-3 w-3 text-white" />}
                   </span>
-                  {p.amenidades_suspendidas && (
-                    <span className="badge bg-rose-50 text-rose-700 border border-rose-200">
-                      Amenidades suspendidas
-                    </span>
-                  )}
-                  {/* Telegram status badge */}
-                  {p.telegram_linked_at ? (
-                    <span className="badge bg-teal-50 text-teal-700 border border-teal-200 flex items-center gap-1">
-                      <MessageSquare className="w-2.5 h-2.5" />🟢 Telegram
-                    </span>
-                  ) : (
-                    <span className="badge bg-slate-50 text-slate-400 border border-slate-200 flex items-center gap-1">
-                      <MessageSquare className="w-2.5 h-2.5" />🔴 Sin Telegram
-                    </span>
-                  )}
                 </div>
-                {p.numero_contacto && (
-                  <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-400">
-                    <Phone className="w-3 h-3" />{p.numero_contacto}
+                {/* Name + location + badges */}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-extrabold leading-tight text-slate-900">{p.nombre}</p>
+                  <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                    <Building2 className="h-3 w-3 flex-shrink-0 text-slate-400" />
+                    Torre {p.torre} · Apto {p.apartamento}
                   </p>
-                )}
+                  {p.numero_contacto && (
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-400">
+                      <Phone className="h-3 w-3 flex-shrink-0" />{p.numero_contacto}
+                    </p>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                      p.estado_cuenta === 'al_dia'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-amber-200 bg-amber-50 text-amber-700'
+                    }`}>
+                      {p.estado_cuenta === 'al_dia' ? '✓ Al día' : '⚠ En mora'}
+                    </span>
+                    {p.telegram_linked_at ? (
+                      <span className="inline-flex items-center gap-0.5 rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[10px] font-bold text-teal-700">
+                        <MessageSquare className="h-2.5 w-2.5" />Telegram
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-0.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+                        Sin Telegram
+                      </span>
+                    )}
+                    {p.huella_registrada && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                        <Fingerprint className="h-2.5 w-2.5" />Huella
+                      </span>
+                    )}
+                    {p.amenidades_suspendidas && (
+                      <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-orange-700">
+                        Amenidades ✗
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <button
-                  onClick={() => { void handleToggleAcceso(p) }}
-                  disabled={togglingUid === p.uid}
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors disabled:opacity-60 ${
-                    p.acceso_habilitado
-                      ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'
-                      : 'bg-rose-50 hover:bg-rose-100 text-rose-600'
-                  }`}
-                  aria-label={p.acceso_habilitado ? 'Deshabilitar acceso' : 'Habilitar acceso'}
-                  title={p.acceso_habilitado ? 'Deshabilitar acceso' : 'Habilitar acceso'}
-                >
-                  {togglingUid === p.uid
-                    ? <span className={`w-3.5 h-3.5 border-2 rounded-full animate-spin ${p.acceso_habilitado ? 'border-emerald-200 border-t-emerald-600' : 'border-rose-200 border-t-rose-600'}`} />
-                    : p.acceso_habilitado
-                      ? <ShieldCheck className="w-3.5 h-3.5" />
-                      : <ShieldX className="w-3.5 h-3.5" />
-                  }
-                </button>
-                <button
-                  onClick={() => setFpEditing(p)}
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
-                    p.huella_registrada
-                      ? 'bg-violet-50 hover:bg-violet-100 text-violet-600'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-400'
-                  }`}
-                  aria-label="Gestionar huella"
-                  title={p.huella_registrada ? 'Huella registrada — clic para actualizar' : 'Registrar huella'}
-                >
-                  <Fingerprint className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => { void handleToggleAmenidades(p) }}
-                  disabled={togglingAmenidadesUid === p.uid}
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors disabled:opacity-60 ${
-                    p.amenidades_suspendidas
-                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-600'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-500'
-                  }`}
-                  aria-label={p.amenidades_suspendidas ? 'Habilitar amenidades' : 'Suspender amenidades'}
-                  title={p.amenidades_suspendidas ? 'Habilitar amenidades' : 'Suspender amenidades'}
-                >
-                  {togglingAmenidadesUid === p.uid
-                    ? <span className="w-3.5 h-3.5 border-2 border-rose-200 border-t-rose-600 rounded-full animate-spin" />
-                    : <ShieldX className="w-3.5 h-3.5" />}
-                </button>
-                <button
-                  onClick={() => setNotifyTarget(p)}
-                  disabled={notifyingUid === p.uid || !p.telegram_chat_id}
-                  className="w-8 h-8 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-600 flex items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Avisar por Telegram"
-                  title={p.telegram_chat_id ? 'Avisar por Telegram' : 'Vincular Telegram primero'}
-                >
-                  {notifyingUid === p.uid
-                    ? <span className="w-3.5 h-3.5 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
-                    : <Send className="w-3.5 h-3.5" />}
-                </button>
-                {/* Vincular / Regenerar Telegram */}
-                <button
-                  onClick={() => setTgLinking(p)}
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
-                    p.telegram_linked_at
-                      ? 'bg-teal-50 hover:bg-teal-100 text-teal-600'
-                      : 'bg-sky-50 hover:bg-sky-100 text-sky-600'
-                  }`}
-                  aria-label={p.telegram_linked_at ? 'Regenerar enlace Telegram' : 'Vincular Telegram'}
-                  title={p.telegram_linked_at ? 'Regenerar enlace Telegram' : 'Vincular Telegram'}
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setAccountTarget(p)}
-                  className="w-8 h-8 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition-colors"
-                  aria-label="Crear cuenta de residente"
-                  title="Crear o resetear cuenta de residente"
-                >
-                  <KeyRound className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => { void handleDownloadPazYSalvo(p) }}
-                  disabled={downloadingPazUid === p.uid || p.estado_cuenta !== 'al_dia'}
-                  className="w-8 h-8 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-600 flex items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Descargar paz y salvo"
-                  title={p.estado_cuenta === 'al_dia' ? 'Descargar paz y salvo' : 'Paz y salvo disponible solo si está al día'}
-                >
-                  {downloadingPazUid === p.uid
-                    ? <span className="w-3.5 h-3.5 border-2 border-sky-200 border-t-sky-600 rounded-full animate-spin" />
-                    : <FileSpreadsheet className="w-3.5 h-3.5" />}
-                </button>
-                <button onClick={() => { void handleDownloadQr(p) }} disabled={downloadingQrUid === p.uid}
-                  className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors disabled:opacity-60"
-                  aria-label="Descargar QR">
-                  {downloadingQrUid === p.uid
-                    ? <span className="w-3.5 h-3.5 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-                    : <Download className="w-3.5 h-3.5" />}
-                </button>
-                <button onClick={() => setEditing(p)}
-                  className="w-8 h-8 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-600 flex items-center justify-center transition-colors"
-                  aria-label="Editar">
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => setDeleting(p)}
-                  className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors"
-                  aria-label="Eliminar">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+
+              {/* ── Action bar ─────────────────────────────── */}
+              <div className="border-t border-slate-100 bg-gradient-to-r from-slate-50 to-white px-2 py-1.5">
+                <div className="flex items-stretch gap-0.5 overflow-x-auto">
+
+                  {/* Access toggle */}
+                  <button
+                    onClick={() => { void handleToggleAcceso(p) }}
+                    disabled={togglingUid === p.uid}
+                    title={p.acceso_habilitado ? 'Deshabilitar acceso' : 'Habilitar acceso'}
+                    aria-label={p.acceso_habilitado ? 'Deshabilitar acceso' : 'Habilitar acceso'}
+                    className="group/ab flex flex-shrink-0 flex-col items-center gap-0.5 rounded-xl p-1 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${
+                      p.acceso_habilitado
+                        ? 'bg-emerald-50 text-emerald-600 group-hover/ab:bg-emerald-100'
+                        : 'bg-rose-50 text-rose-600 group-hover/ab:bg-rose-100'
+                    }`}>
+                      {togglingUid === p.uid
+                        ? <span className={`h-4 w-4 animate-spin rounded-full border-2 ${p.acceso_habilitado ? 'border-emerald-200 border-t-emerald-600' : 'border-rose-200 border-t-rose-600'}`} />
+                        : p.acceso_habilitado ? <ShieldCheck className="h-4 w-4" /> : <ShieldX className="h-4 w-4" />}
+                    </div>
+                    <span className="whitespace-nowrap text-[9px] font-medium leading-none text-slate-400">
+                      {p.acceso_habilitado ? 'Acceso' : 'Bloqueado'}
+                    </span>
+                  </button>
+
+                  {/* Fingerprint */}
+                  <button
+                    onClick={() => setFpEditing(p)}
+                    title={p.huella_registrada ? 'Actualizar huella' : 'Registrar huella'}
+                    aria-label="Gestionar huella"
+                    className="group/ab flex flex-shrink-0 flex-col items-center gap-0.5 rounded-xl p-1 transition-colors hover:bg-slate-100"
+                  >
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${
+                      p.huella_registrada
+                        ? 'bg-violet-50 text-violet-600 group-hover/ab:bg-violet-100'
+                        : 'bg-slate-100 text-slate-400 group-hover/ab:bg-slate-200'
+                    }`}>
+                      <Fingerprint className="h-4 w-4" />
+                    </div>
+                    <span className="whitespace-nowrap text-[9px] font-medium leading-none text-slate-400">Huella</span>
+                  </button>
+
+                  {/* Amenidades */}
+                  <button
+                    onClick={() => { void handleToggleAmenidades(p) }}
+                    disabled={togglingAmenidadesUid === p.uid}
+                    title={p.amenidades_suspendidas ? 'Habilitar amenidades' : 'Suspender amenidades'}
+                    aria-label={p.amenidades_suspendidas ? 'Habilitar amenidades' : 'Suspender amenidades'}
+                    className="group/ab flex flex-shrink-0 flex-col items-center gap-0.5 rounded-xl p-1 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${
+                      p.amenidades_suspendidas
+                        ? 'bg-orange-50 text-orange-600 group-hover/ab:bg-orange-100'
+                        : 'bg-cyan-50 text-cyan-600 group-hover/ab:bg-cyan-100'
+                    }`}>
+                      {togglingAmenidadesUid === p.uid
+                        ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-orange-200 border-t-orange-600" />
+                        : <Waves className="h-4 w-4" />}
+                    </div>
+                    <span className="whitespace-nowrap text-[9px] font-medium leading-none text-slate-400">Amenidades</span>
+                  </button>
+
+                  <div className="mx-0.5 h-6 w-px self-center flex-shrink-0 bg-slate-200" />
+
+                  {/* Notificar Telegram */}
+                  <button
+                    onClick={() => setNotifyTarget(p)}
+                    disabled={notifyingUid === p.uid || !p.telegram_chat_id}
+                    title={p.telegram_chat_id ? 'Enviar notificación por Telegram' : 'Vincular Telegram primero'}
+                    aria-label="Notificar por Telegram"
+                    className="group/ab flex flex-shrink-0 flex-col items-center gap-0.5 rounded-xl p-1 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-50 text-teal-600 transition-colors group-hover/ab:bg-teal-100">
+                      {notifyingUid === p.uid
+                        ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-teal-200 border-t-teal-600" />
+                        : <Bell className="h-4 w-4" />}
+                    </div>
+                    <span className="whitespace-nowrap text-[9px] font-medium leading-none text-slate-400">Notificar</span>
+                  </button>
+
+                  {/* Vincular Telegram */}
+                  <button
+                    onClick={() => setTgLinking(p)}
+                    title={p.telegram_linked_at ? 'Regenerar enlace Telegram' : 'Vincular Telegram'}
+                    aria-label={p.telegram_linked_at ? 'Regenerar enlace Telegram' : 'Vincular Telegram'}
+                    className="group/ab flex flex-shrink-0 flex-col items-center gap-0.5 rounded-xl p-1 transition-colors hover:bg-slate-100"
+                  >
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${
+                      p.telegram_linked_at
+                        ? 'bg-teal-50 text-teal-600 group-hover/ab:bg-teal-100'
+                        : 'bg-sky-50 text-sky-600 group-hover/ab:bg-sky-100'
+                    }`}>
+                      <Link2 className="h-4 w-4" />
+                    </div>
+                    <span className="whitespace-nowrap text-[9px] font-medium leading-none text-slate-400">
+                      {p.telegram_linked_at ? 'Reenlazar' : 'Vincular TG'}
+                    </span>
+                  </button>
+
+                  <div className="mx-0.5 h-6 w-px self-center flex-shrink-0 bg-slate-200" />
+
+                  {/* Cuenta residente */}
+                  <button
+                    onClick={() => setAccountTarget(p)}
+                    title="Crear o resetear cuenta de residente"
+                    aria-label="Cuenta de residente"
+                    className="group/ab flex flex-shrink-0 flex-col items-center gap-0.5 rounded-xl p-1 transition-colors hover:bg-slate-100"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition-colors group-hover/ab:bg-indigo-100">
+                      <UserCog className="h-4 w-4" />
+                    </div>
+                    <span className="whitespace-nowrap text-[9px] font-medium leading-none text-slate-400">Cuenta</span>
+                  </button>
+
+                  {/* Paz y salvo */}
+                  <button
+                    onClick={() => { void handleDownloadPazYSalvo(p) }}
+                    disabled={downloadingPazUid === p.uid || p.estado_cuenta !== 'al_dia'}
+                    title={p.estado_cuenta === 'al_dia' ? 'Descargar paz y salvo' : 'Solo disponible si está al día'}
+                    aria-label="Descargar paz y salvo"
+                    className="group/ab flex flex-shrink-0 flex-col items-center gap-0.5 rounded-xl p-1 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition-colors group-hover/ab:bg-emerald-100">
+                      {downloadingPazUid === p.uid
+                        ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
+                        : <FileCheck2 className="h-4 w-4" />}
+                    </div>
+                    <span className="whitespace-nowrap text-[9px] font-medium leading-none text-slate-400">Paz y salvo</span>
+                  </button>
+
+                  {/* Descargar QR */}
+                  <button
+                    onClick={() => { void handleDownloadQr(p) }}
+                    disabled={downloadingQrUid === p.uid}
+                    title="Descargar código QR"
+                    aria-label="Descargar QR"
+                    className="group/ab flex flex-shrink-0 flex-col items-center gap-0.5 rounded-xl p-1 transition-colors hover:bg-slate-100 disabled:opacity-60"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-colors group-hover/ab:bg-blue-100">
+                      {downloadingQrUid === p.uid
+                        ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+                        : <QrCode className="h-4 w-4" />}
+                    </div>
+                    <span className="whitespace-nowrap text-[9px] font-medium leading-none text-slate-400">QR</span>
+                  </button>
+
+                  <div className="mx-0.5 h-6 w-px self-center flex-shrink-0 bg-slate-200" />
+
+                  {/* Editar */}
+                  <button
+                    onClick={() => setEditing(p)}
+                    title="Editar propietario"
+                    aria-label="Editar"
+                    className="group/ab flex flex-shrink-0 flex-col items-center gap-0.5 rounded-xl p-1 transition-colors hover:bg-slate-100"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-50 text-brand-600 transition-colors group-hover/ab:bg-brand-100">
+                      <Edit2 className="h-4 w-4" />
+                    </div>
+                    <span className="whitespace-nowrap text-[9px] font-medium leading-none text-slate-400">Editar</span>
+                  </button>
+
+                  {/* Eliminar */}
+                  <button
+                    onClick={() => setDeleting(p)}
+                    title="Eliminar propietario"
+                    aria-label="Eliminar"
+                    className="group/ab flex flex-shrink-0 flex-col items-center gap-0.5 rounded-xl p-1 transition-colors hover:bg-slate-100"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition-colors group-hover/ab:bg-rose-100">
+                      <Trash2 className="h-4 w-4" />
+                    </div>
+                    <span className="whitespace-nowrap text-[9px] font-medium leading-none text-slate-400">Eliminar</span>
+                  </button>
+
+                </div>
               </div>
             </div>
           ))}
