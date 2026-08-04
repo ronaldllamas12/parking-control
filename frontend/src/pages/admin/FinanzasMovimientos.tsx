@@ -339,7 +339,7 @@ function NuevoModal({ conceptos, propietarios, onClose, onCreated }: NuevoModalP
         notas: notas || null,
       })
       // result is EstadoCuentaOut — find the last movement and cast it
-      const last = result.movimientos.at(-1)
+      const last = result.movimientos[result.movimientos.length - 1]
       if (!last) { onClose(); return }
       const prop = propietarios.find((p) => p.uid === uid)!
       onCreated({
