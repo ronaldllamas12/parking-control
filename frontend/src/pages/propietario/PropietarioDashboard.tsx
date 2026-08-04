@@ -1,28 +1,33 @@
 import type { AxiosError } from 'axios'
 import {
-  CalendarDays,
-  CreditCard,
-  ExternalLink,
-  FileImage,
-  Home,
-  MessageSquare,
-  RefreshCw,
-  Send,
-  ShieldCheck,
-  Upload,
-  Wallet,
+    CalendarDays,
+    CreditCard,
+    ExternalLink,
+    FileImage,
+    Home,
+    MessageSquare,
+    RefreshCw,
+    Send,
+    ShieldCheck,
+    Upload,
+    Wallet,
 } from 'lucide-react'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  enviarComprobantePago,
-  enviarMensajeAdmin,
-  listarComprobantesPropietario,
-  obtenerDashboardPropietario,
+    enviarComprobantePago,
+    enviarMensajeAdmin,
+    listarComprobantesPropietario,
+    obtenerDashboardPropietario,
+    obtenerMensajesConversacion,
 } from '../../api/propietarioDashboard'
-import type { ApiErrorBody, ComprobantePagoOut, PropietarioDashboardOut } from '../../types'
+import type { ApiErrorBody, ComprobantePagoOut, PropietarioDashboardOut, TelegramMessageOut } from '../../types'
 
 function money(centavos?: number | null): string {
   return `$${Math.round((centavos ?? 0) / 100).toLocaleString('es-CO')} COP`
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
 }
 
 function dateLabel(value?: string | null): string {
@@ -37,6 +42,7 @@ function dateLabel(value?: string | null): string {
 export default function PropietarioDashboard() {
   const [dashboard, setDashboard] = useState<PropietarioDashboardOut | null>(null)
   const [comprobantes, setComprobantes] = useState<ComprobantePagoOut[]>([])
+  const [conversationMessages, setConversationMessages] = useState<TelegramMessageOut[]>([])
   const [loading, setLoading] = useState(true)
   const [savingMessage, setSavingMessage] = useState(false)
   const [savingProof, setSavingProof] = useState(false)
@@ -47,17 +53,20 @@ export default function PropietarioDashboard() {
   const [file, setFile] = useState<File | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const load = async () => {
     setLoading(true)
     setError(null)
     try {
-      const [dash, proofs] = await Promise.all([
+      const [dash, proofs, msgs] = await Promise.all([
         obtenerDashboardPropietario(),
         listarComprobantesPropietario(),
+        obtenerMensajesConversacion(),
       ])
       setDashboard(dash)
       setComprobantes(proofs)
+      setConversationMessages(msgs)
     } catch (err) {
       const axiosErr = err as AxiosError<ApiErrorBody>
       setError(axiosErr.response?.data?.detail ?? 'No se pudo cargar el dashboard')
@@ -69,6 +78,10 @@ export default function PropietarioDashboard() {
   useEffect(() => {
     void load()
   }, [])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [conversationMessages])
 
   const saldo = dashboard?.estado_cuenta.saldo_centavos ?? 0
   const cargos = useMemo(
@@ -87,7 +100,8 @@ export default function PropietarioDashboard() {
     setNotice(null)
     setError(null)
     try {
-      await enviarMensajeAdmin(message.trim())
+      const sent = await enviarMensajeAdmin(message.trim())
+      setConversationMessages((prev) => [...prev, sent])
       setMessage('')
       setNotice('Mensaje enviado a administración')
     } catch (err) {
@@ -244,21 +258,47 @@ export default function PropietarioDashboard() {
         </section>
 
         <div className="space-y-6">
-          <form onSubmit={(e) => { void handleMessage(e) }} className="card-lg p-5 space-y-3">
+          <div className="card-lg p-5 space-y-3">
             <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900">
-              <MessageSquare className="h-5 w-5 text-blue-600" />Mensaje a admin
+              <MessageSquare className="h-5 w-5 text-blue-600" />Mensajes con administración
             </h2>
-            <textarea
-              className="field min-h-28 resize-none"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Escribe tu solicitud o novedad..."
-            />
-            <button type="submit" disabled={savingMessage || !message.trim()} className="btn-primary w-full">
-              {savingMessage ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Send className="h-4 w-4" />}
-              Enviar mensaje
-            </button>
-          </form>
+            <div className="max-h-72 overflow-y-auto space-y-2 rounded-2xl bg-slate-50 p-3">
+              {conversationMessages.length === 0 ? (
+                <p className="py-4 text-center text-xs text-slate-400">No hay mensajes aún. Escribe el primero.</p>
+              ) : (
+                conversationMessages.map((msg) => (
+                  <div key={msg.id} className={`flex ${msg.sender_role === 'propietario' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                      msg.sender_role === 'propietario'
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-slate-200 bg-white text-slate-800'
+                    }`}>
+                      {msg.sender_role !== 'propietario' && (
+                        <p className="mb-1 text-[10px] font-bold text-blue-600">Administración</p>
+                      )}
+                      <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                      <p className={`mt-1 text-[10px] ${msg.sender_role === 'propietario' ? 'text-blue-200' : 'text-slate-400'}`}>
+                        {formatDateTime(msg.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+            <form onSubmit={(e) => { void handleMessage(e) }} className="space-y-3">
+              <textarea
+                className="field min-h-20 resize-none"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Escribe tu solicitud o novedad..."
+              />
+              <button type="submit" disabled={savingMessage || !message.trim()} className="btn-primary w-full">
+                {savingMessage ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Send className="h-4 w-4" />}
+                Enviar mensaje
+              </button>
+            </form>
+          </div>
 
           <form onSubmit={(e) => { void handleProof(e) }} className="card-lg p-5 space-y-3">
             <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900">

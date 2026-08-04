@@ -1,7 +1,7 @@
 import type {
-  ComprobantePagoOut,
-  PropietarioDashboardOut,
-  TelegramMessageOut,
+    ComprobantePagoOut,
+    PropietarioDashboardOut,
+    TelegramMessageOut,
 } from '../types'
 import apiClient from './axios'
 
@@ -19,6 +19,11 @@ export async function enviarMensajeAdmin(mensaje: string): Promise<TelegramMessa
   const { data } = await apiClient.post<TelegramMessageOut>('/api/v1/propietario/mensaje', {
     mensaje,
   })
+  return data
+}
+
+export async function obtenerMensajesConversacion(): Promise<TelegramMessageOut[]> {
+  const { data } = await apiClient.get<TelegramMessageOut[]>('/api/v1/propietario/mensajes')
   return data
 }
 

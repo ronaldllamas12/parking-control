@@ -1,8 +1,8 @@
 from app import crud, schemas
 from app.database import get_db
 from app.security import role_required
-from app.services.cloudinary_service import upload_owner_photo
 from app.services import finanzas_service
+from app.services.cloudinary_service import upload_owner_photo
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
@@ -32,6 +32,15 @@ def get_comprobantes(
 ):
     propietario = _current_propietario(current_user, db)
     return crud.list_comprobantes_pago(db, propietario)
+
+
+@router.get("/mensajes", response_model=list[schemas.TelegramMessageOut])
+def get_mensajes_admin(
+    current_user=Depends(role_required(["propietario"])),
+    db: Session = Depends(get_db),
+):
+    propietario = _current_propietario(current_user, db)
+    return crud.get_propietario_messages(db, propietario, "admin")
 
 
 @router.post("/mensaje", response_model=schemas.TelegramMessageOut, status_code=201)

@@ -6,8 +6,7 @@ from uuid import UUID
 import bcrypt as _bcrypt
 from app import models, schemas
 from sqlalchemy import func, text
-from sqlalchemy.orm import joinedload
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 
 def _generate_short_uid(length: int = 10) -> str:
@@ -864,6 +863,29 @@ def get_propietario_by_telegram_chat_id(
         db.query(models.Propietario)
         .filter(models.Propietario.telegram_chat_id == chat_id)
         .first()
+    )
+
+
+def get_propietario_messages(
+    db: Session,
+    propietario: models.Propietario,
+    destino_role: str,
+) -> list[models.TelegramMessage]:
+    conversation = (
+        db.query(models.TelegramConversation)
+        .filter(
+            models.TelegramConversation.propietario_id == propietario.id,
+            models.TelegramConversation.destino_role == destino_role,
+        )
+        .first()
+    )
+    if not conversation:
+        return []
+    return (
+        db.query(models.TelegramMessage)
+        .filter(models.TelegramMessage.conversation_id == conversation.id)
+        .order_by(models.TelegramMessage.created_at.asc())
+        .all()
     )
 
 
